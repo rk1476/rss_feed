@@ -1,0 +1,34 @@
+{
+  "rss_urls": [
+    "https://nsearchives.nseindia.com/content/RSS/Online_announcements.xml",
+    "https://nsearchives.nseindia.com/content/RSS/Annual_Reports.xml",
+    "https://nsearchives.nseindia.com/content/RSS/Board_Meetings.xml",
+    "https://nsearchives.nseindia.com/content/RSS/brsr.xml",
+    "https://nsearchives.nseindia.com/content/RSS/Corporate_action.xml",
+    "https://nsearchives.nseindia.com/content/RSS/Corporate_Governance.xml",
+    "https://nsearchives.nseindia.com/content/RSS/Daily_Buyback.xml",
+    "https://nsearchives.nseindia.com/content/RSS/Financial_Results.xml",
+    "https://nsearchives.nseindia.com/content/RSS/Insider_Trading.xml",
+    "https://nsearchives.nseindia.com/content/RSS/Investor_Complaints.xml",
+    "https://nsearchives.nseindia.com/content/RSS/Offer_Documents.xml",
+    "https://nsearchives.nseindia.com/content/RSS/Related_Party_Trans.xml",
+    "https://nsearchives.nseindia.com/content/RSS/Sast_Regulation29.xml",
+    "https://nsearchives.nseindia.com/content/RSS/Sast_Regulation31.xml",
+    "https://nsearchives.nseindia.com/content/RSS/Sast_ReasonForEncumbrance.xml",
+    "https://nsearchives.nseindia.com/content/RSS/Secretarial_Compliance.xml",
+    "https://nsearchives.nseindia.com/content/RSS/Share_Transfers.xml",
+    "https://nsearchives.nseindia.com/content/RSS/Shareholding_Pattern.xml",
+    "https://nsearchives.nseindia.com/content/RSS/Statement_Of_Deviation.xml",
+    "https://nsearchives.nseindia.com/content/RSS/Unitholding_Patterns.xml",
+    "https://nsearchives.nseindia.com/content/RSS/Voting_Results.xml",
+    "https://nsearchives.nseindia.com/content/RSS/Circulars.xml"
+  ],
+  "external_feeds": {
+    "BSE": "https://www.bseindia.com/data/xml/notices.xml",
+    "Moneycontrol": "https://www.moneycontrol.com/rss/latestnews.xml",
+    "EconomicTimes": "https://economictimes.indiatimes.com/markets/rssfeeds/1977021501.cms",
+    "LiveMint": "https://www.livemint.com/rss/market",
+    "BQPrime": "https://www.bqprime.com/feed"
+  }
+}
+
