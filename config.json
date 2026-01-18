@@ -29,6 +29,236 @@
     "EconomicTimes": "https://economictimes.indiatimes.com/markets/rssfeeds/1977021501.cms",
     "LiveMint": "https://www.livemint.com/rss/market",
     "BQPrime": "https://www.bqprime.com/feed"
+  },
+  "nse_pages": {
+    "corporate_filings_announcements": {
+      "page_url": "https://www.nseindia.com/companies-listing/corporate-filings-announcements",
+      "api_url": "https://www.nseindia.com/api/corporate-announcements?index=equities",
+      "range_days": 7
+    }
+  },
+  "catalyst_keywords": {
+    "universal": {
+      "general": [
+        "order",
+        "work order",
+        "contract",
+        "letter of award",
+        "loa",
+        "results",
+        "guidance",
+        "capex",
+        "capacity expansion",
+        "promoter",
+        "stake",
+        "acquisition",
+        "merger",
+        "approval",
+        "joint venture",
+        "strategic",
+        "fund raising",
+        "preferential allotment",
+        "qip",
+        "debt reduction",
+        "rating upgrade",
+        "value added",
+        "value-added",
+        "monopoly",
+        "margin", 
+        "margin expansion",
+        "margins",
+        "expansion"
+        ],
+      "orders_revenue": [
+        "order",
+        "order book",
+        "order inflow",
+        "work order",
+        "contract",
+        "rate contract",
+        "framework agreement",
+        "letter of award",
+        "loa",
+        "repeat order",
+        "long term contract",
+        "export order"
+      ],
+      "financial_results": [
+        "financial results",
+        "quarterly results",
+        "results declared",
+        "profit growth",
+        "revenue growth",
+        "margin expansion",
+        "ebitda margin",
+        "operating leverage",
+        "cost optimization",
+        "turnaround",
+        "loss reduced",
+        "cash flow positive",
+        "working capital improvement"
+      ],
+      "growth_capex": [
+        "capex",
+        "capital expenditure",
+        "capacity expansion",
+        "new plant",
+        "greenfield",
+        "brownfield",
+        "commercial production",
+        "trial run",
+        "commissioning",
+        "capacity utilization",
+        "backward integration",
+        "forward integration"
+      ],
+      "corporate_actions": [
+        "acquisition",
+        "merger",
+        "amalgamation",
+        "demerger",
+        "spin off",
+        "joint venture",
+        "subsidiary",
+        "strategic partnership",
+        "technology tie up",
+        "exclusive agreement"
+      ],
+      "capital_structure": [
+        "fund raising",
+        "preferential allotment",
+        "qip",
+        "rights issue",
+        "equity infusion",
+        "warrant conversion",
+        "debt reduction",
+        "loan repayment",
+        "balance sheet strengthening"
+      ],
+      "promoter_activity": [
+        "promoter",
+        "promoter buying",
+        "insider trading",
+        "stake increase",
+        "pledge release",
+        "pledge reduction",
+        "share purchase"
+      ],
+      "regulatory_approvals": [
+        "approval received",
+        "regulatory approval",
+        "government approval",
+        "environment clearance",
+        "licence granted",
+        "certification"
+      ]
+    },
+    "sectors": {
+      "railways": {
+        "orders_projects": [
+          "railway order",
+          "indian railways",
+          "metro project",
+          "vande bharat",
+          "locomotive",
+          "rolling stock",
+          "coach manufacturing",
+          "signalling",
+          "kavach",
+          "track electrification"
+        ],
+        "policy_budget": [
+          "railway budget",
+          "capex outlay",
+          "infrastructure push",
+          "public private partnership"
+        ]
+      },
+      "defence": {
+        "orders_contracts": [
+          "defence order",
+          "ministry of defence",
+          "indigenization",
+          "import substitution",
+          "strategic partnership",
+          "long term supply agreement"
+        ],
+        "platforms_products": [
+          "missile system",
+          "radar system",
+          "naval platform",
+          "aircraft",
+          "unmanned",
+          "drone",
+          "avionics"
+        ],
+        "policy": [
+          "defence exports",
+          "export clearance",
+          "make in india defence",
+          "atmanirbhar bharat"
+        ]
+      },
+      "it": {
+        "business_growth": [
+          "large deal",
+          "multi year contract",
+          "deal wins",
+          "pipeline strong",
+          "order backlog",
+          "client addition"
+        ],
+        "technology_focus": [
+          "digital transformation",
+          "cloud",
+          "artificial intelligence",
+          "machine learning",
+          "data analytics",
+          "cyber security",
+          "enterprise software"
+        ],
+        "guidance": [
+          "revenue guidance",
+          "margin guidance",
+          "growth outlook",
+          "demand environment"
+        ]
+      },
+      "psu": {
+        "policy_driven": [
+          "government approval",
+          "cabinet approval",
+          "disinvestment",
+          "strategic sale",
+          "asset monetization"
+        ],
+        "financial_support": [
+          "capital infusion",
+          "sovereign guarantee",
+          "viability gap funding"
+        ],
+        "operational": [
+          "tariff revision",
+          "price revision",
+          "subsidy",
+          "recovery of dues"
+        ]
+      }
+    },
+    "filters": {
+      "negative": [
+        "clarification",
+        "rumour",
+        "spurious",
+        "denies",
+        "no material impact",
+        "litigation",
+        "penalty",
+        "fine",
+        "show cause notice",
+        "inspection"
+      ]
+    }
   }
 }
 
