@@ -2,7 +2,7 @@ name: Daily NSE RSS
 
 on:
   schedule:
-    - cron: '30 3 * * *'   # 9:00 AM IST
+    - cron: '30 14 * * *'   # 8:00 PM IST
   workflow_dispatch:
 
 permissions:
