@@ -4,3 +4,5 @@ requests
 feedparser
 python-dateutil
 rapidfuzz
+google-genai
+flask

@@ -664,8 +664,112 @@ def generate_html_page(df, stocks_list, output_path, df_full=None):
             .col-stock { width: 6%; }
             .col-source { width: 10%; }
             .col-published { width: 11%; }
-            .col-description { width: 49%; }
-            .col-link { width: 24%; }
+            .col-description { width: 43%; }
+            .col-link { width: 20%; }
+            .col-action { width: 10%; }
+            .analyze-btn {
+                padding: 4px 8px;
+                font-size: 11px;
+                background-color: #4CAF50;
+                color: white;
+                border: none;
+                border-radius: 3px;
+                cursor: pointer;
+            }
+            .analyze-btn:hover {
+                background-color: #45a049;
+            }
+            .analyze-btn:disabled {
+                background-color: #ccc;
+                cursor: not-allowed;
+            }
+            .pdf-checkbox {
+                margin-right: 6px;
+            }
+            .modal {
+                display: none;
+                position: fixed;
+                z-index: 1000;
+                left: 0;
+                top: 0;
+                width: 100%;
+                height: 100%;
+                overflow: auto;
+                background-color: rgba(0,0,0,0.4);
+            }
+            .modal-content {
+                background-color: #fefefe;
+                margin: 5% auto;
+                padding: 20px;
+                border: 1px solid #888;
+                width: 80%;
+                max-width: 900px;
+                border-radius: 5px;
+                max-height: 80vh;
+                overflow-y: auto;
+            }
+            .modal-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 15px;
+                border-bottom: 1px solid #ddd;
+                padding-bottom: 10px;
+            }
+            .modal-title {
+                font-size: 18px;
+                font-weight: bold;
+                color: #333;
+            }
+            .close {
+                color: #aaa;
+                font-size: 28px;
+                font-weight: bold;
+                cursor: pointer;
+            }
+            .close:hover {
+                color: #000;
+            }
+            .loading {
+                text-align: center;
+                padding: 40px 20px;
+                color: #666;
+            }
+            .spinner {
+                border: 4px solid #f3f3f3;
+                border-top: 4px solid #4CAF50;
+                border-radius: 50%;
+                width: 40px;
+                height: 40px;
+                animation: spin 1s linear infinite;
+                margin: 0 auto 20px;
+            }
+            @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+            }
+            .loading-text {
+                font-size: 14px;
+                margin-top: 10px;
+            }
+            .error {
+                color: #d32f2f;
+                padding: 10px;
+                background-color: #ffebee;
+                border-radius: 4px;
+                margin: 10px 0;
+            }
+            .json-display {
+                background-color: #f5f5f5;
+                padding: 15px;
+                border-radius: 4px;
+                font-family: 'Courier New', monospace;
+                font-size: 12px;
+                white-space: pre-wrap;
+                word-wrap: break-word;
+                max-height: 60vh;
+                overflow-y: auto;
+            }
         </style>
     </head>
     <body>
@@ -695,7 +799,7 @@ def generate_html_page(df, stocks_list, output_path, df_full=None):
         df_display["Link_Display"] = df_display.apply(select_link_display, axis=1)
 
         # Define compact column order for UI
-        display_cols = ["Matched_Stock", "Source", "Published", "Description", "Link_Display"]
+        display_cols = ["Matched_Stock", "Source", "Published", "Description", "Link_Display", "Action"]
 
         # Sort by matched stock name (alphabetical)
         df_display = df_display.sort_values(by=["Matched_Stock"], kind="stable")
@@ -726,7 +830,11 @@ def generate_html_page(df, stocks_list, output_path, df_full=None):
             "Published": "col-published",
             "Description": "col-description",
             "Link_Display": "col-link",
+            "Action": "col-action",
         }
+        
+        # Track which stocks have buttons (one button per stock)
+        stocks_with_buttons = set()
         for col in display_cols:
             header = "Link" if col == "Link_Display" else col
             cls = header_classes.get(col, "")
@@ -745,12 +853,31 @@ def generate_html_page(df, stocks_list, output_path, df_full=None):
                 html_content += "<tr class=\"kw-row\">"
             else:
                 html_content += "<tr>"
+            
+            matched_stock = str(row.get("Matched_Stock", "")).strip()
+            show_button = matched_stock and matched_stock not in stocks_with_buttons
+            
             for col in display_cols:
                 cell_value = str(row.get(col, "")) if pd.notna(row.get(col, "")) else ""
                 if col == "Link_Display" and cell_value:
-                    # Link column: keep href as raw URL, but highlight keywords in link text if present
+                    # Link column: add checkbox for PDFs, keep href as raw URL
                     link_text = highlight_keywords(cell_value)
-                    html_content += f'<td class="{header_classes.get(col, "")}"><a href="{cell_value}" target="_blank">{link_text}</a></td>'
+                    is_pdf = cell_value.lower().endswith('.pdf')
+                    checkbox_html = ""
+                    if is_pdf:
+                        # Escape URL for data attribute
+                        url_escaped = cell_value.replace('"', '&quot;')
+                        stock_escaped = matched_stock.replace('"', '&quot;')
+                        checkbox_html = f'<input type="checkbox" class="pdf-checkbox" data-url="{url_escaped}" data-stock="{stock_escaped}">'
+                    html_content += f'<td class="{header_classes.get(col, "")}">{checkbox_html}<a href="{cell_value}" target="_blank">{link_text}</a></td>'
+                elif col == "Action":
+                    # Action column: show button only for first row of each stock
+                    if show_button:
+                        stocks_with_buttons.add(matched_stock)
+                        stock_escaped = matched_stock.replace('"', '&quot;')
+                        html_content += f'<td class="{header_classes.get(col, "")}"><button class="analyze-btn" data-stock="{stock_escaped}">Analyze PDFs</button></td>'
+                    else:
+                        html_content += f'<td class="{header_classes.get(col, "")}"></td>'
                 elif col == "Description":
                     # Add tooltip with categorized keyword matches
                     kw_tooltip = " | ".join(
@@ -767,6 +894,22 @@ def generate_html_page(df, stocks_list, output_path, df_full=None):
             html_content += "</tr>"
 
         html_content += "</tbody></table>"
+        
+        # Add modal for displaying results
+        html_content += """
+        <div id="resultModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <span class="modal-title">PDF Analysis Result</span>
+                    <span class="close">&times;</span>
+                </div>
+                <div id="modalBody">
+                    <div class="loading">Ready to process PDFs...</div>
+                </div>
+            </div>
+        </div>
+        """
+        
         html_content += f"""
         <script>
             (function() {{
@@ -802,22 +945,42 @@ def generate_html_page(df, stocks_list, output_path, df_full=None):
 
                 function renderRows(rows, matchedStockLabel) {{
                     tbody.innerHTML = "";
-                    rows.forEach(r => {{
+                    const stockName = matchedStockLabel || (rows.length > 0 ? rows[0].Matched_Stock : "");
+                    let buttonShown = false; // Track if button already shown for this stock
+                    
+                    rows.forEach((r, index) => {{
                         const negRow = !!r.Has_Negative || isNegative(r.Row_Blob || "");
                         const tr = document.createElement("tr");
                         if (negRow) tr.className = "neg-row";
                         const tooltip = [r.KW_Universal, r.KW_Sector, r.KW_Filters].filter(Boolean).join(" | ");
+                        
+                        // Check if link is PDF
+                        const link = r.Link || "";
+                        const isPdf = link.toLowerCase().endsWith('.pdf');
+                        const stockEscaped = (stockName || "").replace(/"/g, '&quot;');
+                        const linkEscaped = link.replace(/"/g, '&quot;');
+                        
+                        // Add checkbox for PDF links
+                        const checkboxHtml = isPdf ? `<input type="checkbox" class="pdf-checkbox" data-url="${{linkEscaped}}" data-stock="${{stockEscaped}}">` : "";
+                        
+                        // Show button only on first row for this stock
+                        const showButton = !buttonShown && stockName;
+                        if (showButton) buttonShown = true;
+                        
                         tr.innerHTML = `
-                            <td class="col-stock">${{matchedStockLabel || r.Matched_Stock || ""}}</td>
+                            <td class="col-stock">${{stockName || r.Matched_Stock || ""}}</td>
                             <td class="col-source">${{r.Source || ""}}</td>
                             <td class="col-published">${{r.Published || ""}}</td>
                             <td class="col-description" title="${{tooltip}}">${{highlight(r.Description || "")}}</td>
-                            <td class="col-link">${{r.Link ? `<a href="${{r.Link}}" target="_blank">${{highlight(r.Link)}}</a>` : ""}}</td>
+                            <td class="col-link">${{link ? `${{checkboxHtml}}<a href="${{link}}" target="_blank">${{highlight(link)}}</a>` : ""}}</td>
+                            <td class="col-action">${{showButton ? `<button class="analyze-btn" data-stock="${{stockEscaped}}">Analyze PDFs</button>` : ""}}</td>
                         `;
                         tbody.appendChild(tr);
                     }});
                     totalMatchesEl.textContent = rows.length.toString();
-                    stocksSearchedEl.textContent = matchedStockLabel || "";
+                    stocksSearchedEl.textContent = stockName || "";
+                    
+                    // Note: Event delegation handles buttons automatically, no need to call setupAnalyzeButtons()
                 }}
 
                 function applyFilter() {{
@@ -833,13 +996,20 @@ def generate_html_page(df, stocks_list, output_path, df_full=None):
                 function searchExcel() {{
                     const qRaw = (excelInput.value || "").trim();
                     if (!qRaw) return;
-                    fetch(`http://localhost:5005/search?stock=${{encodeURIComponent(qRaw)}}`)
-                        .then(r => r.json())
+                    const SERVER_URL = "http://127.0.0.1:5005";
+                    fetch(`${{SERVER_URL}}/search?stock=${{encodeURIComponent(qRaw)}}`)
+                        .then(r => {{
+                            if (!r.ok) {{
+                                throw new Error(`Server error: ${{r.status}}`);
+                            }}
+                            return r.json();
+                        }})
                         .then(data => {{
                             renderRows(data.results || [], data.stock || qRaw.toUpperCase());
                         }})
-                        .catch(() => {{
-                            alert("Search server not running. Start it with: py rss_feed_server.py");
+                        .catch((error) => {{
+                            console.error("Search error:", error);
+                            alert(`Search server error: ${{error.message}}. Make sure the server is running with: py rss_feed_server.py`);
                         }});
                 }}
 
@@ -893,6 +1063,119 @@ def generate_html_page(df, stocks_list, output_path, df_full=None):
                     input.value = "";
                     applyFilter();
                 });
+            })();
+        </script>
+        
+        <script>
+            // PDF Analysis functionality
+            (function() {
+                const modal = document.getElementById("resultModal");
+                const modalBody = document.getElementById("modalBody");
+                const closeBtn = document.querySelector(".close");
+                const SERVER_URL = "http://127.0.0.1:5005";
+                
+                // Check if modal elements exist
+                if (!modal || !modalBody) {
+                    console.error("Modal elements not found. Make sure modal HTML is in the page.");
+                    return;
+                }
+                
+                // Close modal
+                if (closeBtn) {
+                    closeBtn.onclick = function() {
+                        if (modal) modal.style.display = "none";
+                    };
+                }
+                
+                window.onclick = function(event) {
+                    if (event.target == modal && modal) {
+                        modal.style.display = "none";
+                    }
+                };
+                
+                // Handle analyze button clicks using event delegation
+                // This works for both static and dynamically added buttons
+                document.addEventListener("click", function(event) {
+                    if (event.target && event.target.classList.contains("analyze-btn")) {
+                        const btn = event.target;
+                        const stockName = btn.getAttribute("data-stock");
+                        if (!stockName) return;
+                            
+                            // Collect checked PDF URLs for this stock
+                            const checkboxes = document.querySelectorAll(`.pdf-checkbox[data-stock="${stockName}"]:checked`);
+                            const pdfUrls = Array.from(checkboxes).map(cb => cb.getAttribute("data-url"));
+                            
+                            if (pdfUrls.length === 0) {
+                                alert("Please select at least one PDF to analyze.");
+                                return;
+                            }
+                            
+                            // For now, only process first PDF (as per requirement)
+                            const selectedPdfUrl = pdfUrls[0];
+                            
+                            // Show modal with loading immediately
+                            modal.style.display = "block";
+                            modalBody.innerHTML = `
+                                <div class="loading">
+                                    <div class="spinner"></div>
+                                    <div class="loading-text">Processing PDF...</div>
+                                    <div class="loading-text" style="font-size: 12px; color: #999; margin-top: 5px;">
+                                        Downloading and analyzing: ${selectedPdfUrl.substring(0, 50)}${selectedPdfUrl.length > 50 ? '...' : ''}
+                                    </div>
+                                    <div class="loading-text" style="font-size: 11px; color: #999; margin-top: 10px;">
+                                        This may take a few moments...
+                                    </div>
+                                </div>
+                            `;
+                            
+                            // Disable button during processing
+                            btn.disabled = true;
+                            const originalText = btn.textContent;
+                            btn.textContent = "Processing...";
+                            
+                            // Send request to backend
+                            fetch(`${SERVER_URL}/process_pdfs`, {
+                                method: "POST",
+                                headers: {
+                                    "Content-Type": "application/json",
+                                },
+                                body: JSON.stringify({
+                                    stock: stockName,
+                                    pdf_urls: [selectedPdfUrl]
+                                })
+                            })
+                            .then(response => response.json())
+                            .then(data => {
+                                if (data.error) {
+                                    modalBody.innerHTML = `<div class="error">Error: ${data.error}</div>`;
+                                } else {
+                                    // Display JSON result
+                                    modalBody.innerHTML = `
+                                        <div><strong>Stock:</strong> ${data.stock}</div>
+                                        <div style="margin-top: 10px;"><strong>Result:</strong></div>
+                                        <div class="json-display">${escapeHtml(data.result)}</div>
+                                    `;
+                                }
+                            })
+                            .catch(error => {
+                                modalBody.innerHTML = `<div class="error">Error: ${error.message || "Failed to process PDF"}</div>`;
+                            })
+                            .finally(() => {
+                                // Re-enable button
+                                btn.disabled = false;
+                                btn.textContent = originalText;
+                            });
+                    }
+                });
+                
+                function escapeHtml(text) {
+                    const div = document.createElement("div");
+                    div.textContent = text;
+                    return div.innerHTML;
+                }
+                
+                // Event delegation is already set up above, so buttons work automatically
+                // No need for setupAnalyzeButtons() since we use document-level event listener
             })();
         </script>
         """
@@ -1380,4 +1663,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

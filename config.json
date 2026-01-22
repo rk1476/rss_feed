@@ -37,6 +37,12 @@
       "range_days": 7
     }
   },
+  "gemini_api_key": "AIzaSyDVrA0MHY2r1ICJzwjciveaLjosKR_Vth4",
+  "gemini_prompts": {
+    "single_request": "Summarise the attached company disclosures ONLY from a stock catalyst perspective.\n\nFocus on:\n- New orders or revenue visibility\n- Capacity expansion or capex\n- Margin, cost, or profitability commentary\n- Balance sheet changes\n- Management guidance or outlook\n- Strategic or structural developments\n\nIgnore:\n- Boilerplate\n- Legal text\n- Repetition\n- Detailed financial tables\n\nReturn the output in JSON with keys:\n- growth_orders\n- margins_costs\n- capex_capacity\n- balance_sheet\n- management_outlook\n- strategic_events\n\nIf there are no meaningful catalysts, return an empty JSON object.",
+    "chunk_request": "Summarise this section of the company disclosures ONLY from a stock catalyst perspective.\n\nFocus on:\n- New orders or revenue visibility\n- Capacity expansion or capex\n- Margin, cost, or profitability commentary\n- Balance sheet changes\n- Management guidance or outlook\n- Strategic or structural developments\n\nIgnore:\n- Boilerplate\n- Legal text\n- Repetition\n- Detailed financial tables\n\nReturn the output in JSON with keys:\n- growth_orders\n- margins_costs\n- capex_capacity\n- balance_sheet\n- management_outlook\n- strategic_events\n\nIf there are no meaningful catalysts in this section, return an empty JSON object.",
+    "combine_request": "You have been provided with JSON summaries from different sections of a company disclosure document. Each section summary contains catalyst information in JSON format with keys: growth_orders, margins_costs, capex_capacity, balance_sheet, management_outlook, strategic_events.\n\nPlease combine these section summaries into a single, comprehensive JSON object with the same keys.\n\nRules:\n- Merge information from all sections\n- Eliminate redundancy\n- Keep only the most important and specific catalyst information\n- If a key has no meaningful catalysts across all sections, use an empty array or null\n- Maintain JSON structure with keys: growth_orders, margins_costs, capex_capacity, balance_sheet, management_outlook, strategic_events\n\nReturn ONLY the final combined JSON object, no additional text."
+  },
   "catalyst_keywords": {
     "universal": {
       "general": [
