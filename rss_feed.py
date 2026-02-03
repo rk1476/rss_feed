@@ -290,6 +290,26 @@ def read_stocks_list(file_path):
         print(f"Error reading stocks list file: {str(e)}")
         return []
 
+def _first_significant_word(company_name):
+    """Return the first significant (non-common) word from normalized company name, for pre-filtering."""
+    if not company_name:
+        return ""
+    normalized = normalize_company_name(company_name)
+    if not normalized:
+        return ""
+    common_words = {
+        'LTD', 'INC', 'CORP', 'PVT', 'AND', 'THE', 'OF', 'IN', 'FOR', 'TO',
+        'INDUSTRIES', 'INDUSTRY', 'ENGINEERING', 'AUTOMATION', 'SYSTEMS',
+        'TECHNOLOGIES', 'TECHNOLOGY', 'SOLUTIONS', 'SERVICES', 'GROUP',
+        'GLOBAL', 'INTERNATIONAL', 'COMPANY', 'COMPANIES',
+        'INDIA', 'OVERSEAS', 'FINANCE', 'FINANCIAL', 'BANK', 'BANKING'
+    }
+    for word in normalized.split():
+        if word not in common_words and (len(word) > 2 or any(c.isdigit() for c in word)):
+            return word
+    return normalized.split()[0] if normalized.split() else ""
+
+
 def fuzzy_match_company_name(search_name, text, threshold=85):
     """Check if normalized company name matches in text using fuzzy matching"""
     if not search_name or not text:
@@ -447,12 +467,19 @@ def search_stocks_in_dataframe(df, stocks_list, symbol_to_company_map):
             # For longer symbols, substring matching is acceptable
             symbol_mask = df_search[blob_upper_col].str.contains(stock_symbol, na=False, regex=False)
         
-        # Search for company name using fuzzy matching across the full row blob
+        # Search for company name using fuzzy matching; pre-filter to rows containing first significant word to avoid O(rows) slow fuzzy calls
         company_mask = pd.Series([False] * len(df_search))
         if company_name:
-            for idx in df_search.index:
-                row_match = fuzzy_match_company_name(company_name, df_search.loc[idx, blob_col])
-                if row_match:
+            first_word = _first_significant_word(company_name)
+            if first_word:
+                candidate_mask = df_search[blob_col].fillna("").str.upper().str.contains(
+                    re.escape(first_word), regex=True, na=False
+                )
+                candidate_indices = df_search.index[candidate_mask].tolist()
+            else:
+                candidate_indices = df_search.index.tolist()
+            for idx in candidate_indices:
+                if fuzzy_match_company_name(company_name, df_search.at[idx, blob_col]):
                     company_mask.loc[idx] = True
         
         combined_mask = symbol_mask | company_mask
@@ -559,21 +586,145 @@ def generate_html_page(df, stocks_list, output_path, df_full=None):
     """Generate HTML page with stock matches and clickable links"""
     html_content = """
     <!DOCTYPE html>
-    <html>
+    <html data-theme="dark">
     <head>
         <title>NSE RSS Feed - Stock Matches</title>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
         <style>
+            :root {
+                --bg: #f5f5f5;
+                --text: #333;
+                --info-bg: #e7f3ff;
+                --info-border: transparent;
+                --input-bg: #fff;
+                --input-border: #ccc;
+                --input-text: #333;
+                --input-placeholder: #999;
+                --btn-bg: #f8f8f8;
+                --btn-border: #ccc;
+                --btn-text: #333;
+                --btn-hover-bg: #eee;
+                --table-bg: #fff;
+                --table-shadow: 0 1px 3px rgba(0,0,0,0.08);
+                --th-bg: #4CAF50;
+                --th-text: #fff;
+                --th-border: transparent;
+                --td-border: #eee;
+                --td-text: #333;
+                --tr-hover: #f5f5f5;
+                --kw-row-bg: #fff8d6;
+                --neg-row-bg: #ffe3e3;
+                --kw-bg: #ffeb3b;
+                --kw-text: #333;
+                --link: #0066cc;
+                --link-hover: #004499;
+                --no-results: #666;
+                --analyze-bg: #4CAF50;
+                --analyze-text: #fff;
+                --analyze-border: transparent;
+                --analyze-hover: #45a049;
+                --analyze-disabled-bg: #ccc;
+                --analyze-disabled-text: #666;
+                --modal-overlay: rgba(0,0,0,0.4);
+                --modal-bg: #fefefe;
+                --modal-border: #888;
+                --modal-header-border: #ddd;
+                --modal-title: #333;
+                --close: #aaa;
+                --close-hover: #000;
+                --loading: #666;
+                --spinner-track: #f3f3f3;
+                --spinner-top: #4CAF50;
+                --error-text: #d32f2f;
+                --error-bg: #ffebee;
+                --error-border: transparent;
+                --json-bg: #f5f5f5;
+                --json-text: #333;
+                --json-border: transparent;
+            }
+            html[data-theme="dark"] {
+                --bg: #1a1a1a;
+                --text: #e0e0e0;
+                --info-bg: #2d2d2d;
+                --info-border: #404040;
+                --input-bg: #2d2d2d;
+                --input-border: #404040;
+                --input-text: #e0e0e0;
+                --input-placeholder: #888;
+                --btn-bg: #3d3d3d;
+                --btn-border: #404040;
+                --btn-text: #e0e0e0;
+                --btn-hover-bg: #4a4a4a;
+                --table-bg: #252525;
+                --table-shadow: 0 1px 3px rgba(0,0,0,0.3);
+                --th-bg: #383838;
+                --th-text: #e8e8e8;
+                --th-border: #505050;
+                --td-border: #353535;
+                --td-text: #d0d0d0;
+                --tr-hover: #2f2f2f;
+                --kw-row-bg: #3d3828;
+                --neg-row-bg: #3d2d2d;
+                --kw-bg: #5c5526;
+                --kw-text: #e8e088;
+                --link: #7eb8da;
+                --link-hover: #9dd4f5;
+                --no-results: #888;
+                --analyze-bg: #4a5568;
+                --analyze-text: #e0e0e0;
+                --analyze-border: #5a6578;
+                --analyze-hover: #5a6578;
+                --analyze-disabled-bg: #3d3d3d;
+                --analyze-disabled-text: #666;
+                --modal-overlay: rgba(0,0,0,0.6);
+                --modal-bg: #252525;
+                --modal-border: #404040;
+                --modal-header-border: #404040;
+                --modal-title: #e8e8e8;
+                --close: #888;
+                --close-hover: #e0e0e0;
+                --loading: #888;
+                --spinner-track: #3d3d3d;
+                --spinner-top: #6b7280;
+                --error-text: #f08a8a;
+                --error-bg: #3d2d2d;
+                --error-border: #5a4040;
+                --json-bg: #1a1a1a;
+                --json-text: #c0c0c0;
+                --json-border: #404040;
+            }
             body {
                 font-family: Arial, sans-serif;
                 margin: 16px;
-                background-color: #f5f5f5;
+                background-color: var(--bg);
+                color: var(--text);
+            }
+            .theme-toggle-wrap {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                margin-bottom: 12px;
+                justify-content: flex-end;
+            }
+            .theme-toggle {
+                padding: 6px 12px;
+                font-size: 12px;
+                border-radius: 4px;
+                border: 1px solid var(--btn-border);
+                background: var(--btn-bg);
+                color: var(--btn-text);
+                cursor: pointer;
+            }
+            .theme-toggle:hover {
+                background: var(--btn-hover-bg);
             }
             .info {
-                background-color: #e7f3ff;
+                background-color: var(--info-bg);
                 padding: 10px 12px;
                 border-radius: 5px;
                 margin-bottom: 12px;
                 font-size: 12px;
+                border: 1px solid var(--info-border);
             }
             .search-bar {
                 display: flex;
@@ -581,31 +732,52 @@ def generate_html_page(df, stocks_list, output_path, df_full=None):
                 justify-content: flex-end;
                 margin-bottom: 12px;
             }
+            .upload-bar {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                margin-bottom: 12px;
+                flex-wrap: wrap;
+            }
+            .upload-bar input[type="file"] {
+                font-size: 12px;
+            }
+            .upload-label { font-size: 12px; }
+            .upload-status { font-size: 12px; color: var(--loading); }
             .search-bar input {
                 padding: 6px 8px;
-                border: 1px solid #ccc;
+                border: 1px solid var(--input-border);
                 border-radius: 4px;
                 font-size: 12px;
                 min-width: 220px;
+                background-color: var(--input-bg);
+                color: var(--input-text);
+            }
+            .search-bar input::placeholder {
+                color: var(--input-placeholder);
             }
             .search-bar button {
                 padding: 6px 10px;
-                border: 1px solid #ccc;
+                border: 1px solid var(--btn-border);
                 border-radius: 4px;
-                background: #f8f8f8;
+                background: var(--btn-bg);
+                color: var(--btn-text);
                 font-size: 12px;
                 cursor: pointer;
+            }
+            .search-bar button:hover {
+                background: var(--btn-hover-bg);
             }
             table {
                 width: 100%;
                 border-collapse: collapse;
-                background-color: white;
-                box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+                background-color: var(--table-bg);
+                box-shadow: var(--table-shadow);
                 table-layout: fixed;
             }
             th {
-                background-color: #4CAF50;
-                color: white;
+                background-color: var(--th-bg);
+                color: var(--th-text);
                 padding: 8px 10px;
                 text-align: left;
                 font-weight: 600;
@@ -613,18 +785,19 @@ def generate_html_page(df, stocks_list, output_path, df_full=None):
                 position: sticky;
                 top: 0;
                 z-index: 1;
+                border-bottom: 1px solid var(--th-border);
             }
             td {
                 padding: 6px 10px;
-                border-bottom: 1px solid #eee;
+                border-bottom: 1px solid var(--td-border);
                 font-size: 12px;
                 line-height: 1.3;
                 white-space: nowrap;
                 overflow: hidden;
                 text-overflow: ellipsis;
                 vertical-align: top;
+                color: var(--td-text);
             }
-            /* Wrap long text for Description and Link columns */
             td.col-description,
             td.col-link {
                 white-space: normal;
@@ -634,31 +807,33 @@ def generate_html_page(df, stocks_list, output_path, df_full=None):
                 overflow-wrap: anywhere;
             }
             tr:hover {
-                background-color: #f5f5f5;
+                background-color: var(--tr-hover);
             }
             tr.kw-row td {
-                background-color: #fff8d6;
+                background-color: var(--kw-row-bg);
             }
             tr.neg-row td {
-                background-color: #ffe3e3;
+                background-color: var(--neg-row-bg);
             }
             .kw {
-                background: #ffeb3b;
+                background: var(--kw-bg);
+                color: var(--kw-text);
                 padding: 0 2px;
                 border-radius: 2px;
                 font-weight: 600;
             }
             a {
-                color: #0066cc;
+                color: var(--link);
                 text-decoration: none;
             }
             a:hover {
                 text-decoration: underline;
+                color: var(--link-hover);
             }
             .no-results {
                 text-align: center;
                 padding: 32px;
-                color: #666;
+                color: var(--no-results);
                 font-size: 14px;
             }
             .col-stock { width: 6%; }
@@ -670,18 +845,32 @@ def generate_html_page(df, stocks_list, output_path, df_full=None):
             .analyze-btn {
                 padding: 4px 8px;
                 font-size: 11px;
-                background-color: #4CAF50;
-                color: white;
-                border: none;
+                background-color: var(--analyze-bg);
+                color: var(--analyze-text);
+                border: 1px solid var(--analyze-border);
                 border-radius: 3px;
                 cursor: pointer;
             }
             .analyze-btn:hover {
-                background-color: #45a049;
+                background-color: var(--analyze-hover);
             }
             .analyze-btn:disabled {
-                background-color: #ccc;
+                background-color: var(--analyze-disabled-bg);
+                color: var(--analyze-disabled-text);
+                border-color: var(--analyze-disabled-bg);
                 cursor: not-allowed;
+            }
+            .download-pdf-btn {
+                padding: 8px 14px;
+                font-size: 13px;
+                background-color: var(--analyze-bg);
+                color: var(--analyze-text);
+                border: 1px solid var(--analyze-border);
+                border-radius: 4px;
+                cursor: pointer;
+            }
+            .download-pdf-btn:hover {
+                background-color: var(--analyze-hover);
             }
             .pdf-checkbox {
                 margin-right: 6px;
@@ -695,49 +884,50 @@ def generate_html_page(df, stocks_list, output_path, df_full=None):
                 width: 100%;
                 height: 100%;
                 overflow: auto;
-                background-color: rgba(0,0,0,0.4);
+                background-color: var(--modal-overlay);
             }
             .modal-content {
-                background-color: #fefefe;
+                background-color: var(--modal-bg);
                 margin: 5% auto;
                 padding: 20px;
-                border: 1px solid #888;
+                border: 1px solid var(--modal-border);
                 width: 80%;
                 max-width: 900px;
                 border-radius: 5px;
                 max-height: 80vh;
                 overflow-y: auto;
+                color: var(--text);
             }
             .modal-header {
                 display: flex;
                 justify-content: space-between;
                 align-items: center;
                 margin-bottom: 15px;
-                border-bottom: 1px solid #ddd;
+                border-bottom: 1px solid var(--modal-header-border);
                 padding-bottom: 10px;
             }
             .modal-title {
                 font-size: 18px;
                 font-weight: bold;
-                color: #333;
+                color: var(--modal-title);
             }
             .close {
-                color: #aaa;
+                color: var(--close);
                 font-size: 28px;
                 font-weight: bold;
                 cursor: pointer;
             }
             .close:hover {
-                color: #000;
+                color: var(--close-hover);
             }
             .loading {
                 text-align: center;
                 padding: 40px 20px;
-                color: #666;
+                color: var(--loading);
             }
             .spinner {
-                border: 4px solid #f3f3f3;
-                border-top: 4px solid #4CAF50;
+                border: 4px solid var(--spinner-track);
+                border-top: 4px solid var(--spinner-top);
                 border-radius: 50%;
                 width: 40px;
                 height: 40px;
@@ -748,19 +938,17 @@ def generate_html_page(df, stocks_list, output_path, df_full=None):
                 0% { transform: rotate(0deg); }
                 100% { transform: rotate(360deg); }
             }
-            .loading-text {
-                font-size: 14px;
-                margin-top: 10px;
-            }
+            .loading-text { font-size: 14px; margin-top: 10px; }
             .error {
-                color: #d32f2f;
+                color: var(--error-text);
                 padding: 10px;
-                background-color: #ffebee;
+                background-color: var(--error-bg);
+                border: 1px solid var(--error-border);
                 border-radius: 4px;
                 margin: 10px 0;
             }
             .json-display {
-                background-color: #f5f5f5;
+                background-color: var(--json-bg);
                 padding: 15px;
                 border-radius: 4px;
                 font-family: 'Courier New', monospace;
@@ -769,12 +957,18 @@ def generate_html_page(df, stocks_list, output_path, df_full=None):
                 word-wrap: break-word;
                 max-height: 60vh;
                 overflow-y: auto;
+                color: var(--json-text);
+                border: 1px solid var(--json-border);
             }
         </style>
     </head>
     <body>
+        <div class="theme-toggle-wrap">
+            <button type="button" class="theme-toggle" id="themeToggle" aria-label="Toggle theme">Dark</button>
+        </div>
         <div class="info">
-            <strong>Stocks Searched:</strong> <span id="stocksSearched">{stocks_searched}</span><br>
+            <strong>Stocks found</strong> – <span id="stocksFoundCount">0</span> – <span id="stocksFoundList"></span><br>
+            <strong>Stocks not found</strong> – <span id="stocksNotFoundCount">0</span> – <span id="stocksNotFoundList"></span><br>
             <strong>Total Matches Found:</strong> <span id="totalMatches">{total_matches}</span>
         </div>
         <div class="search-bar">
@@ -785,118 +979,32 @@ def generate_html_page(df, stocks_list, output_path, df_full=None):
             <input id="excelSearchInput" type="text" placeholder="Search Excel by stock (e.g., TCS)" />
             <button id="excelSearchBtn" type="button">Search Excel</button>
         </div>
+        <div class="upload-bar">
+            <label class="upload-label">Upload stock list (.txt, .csv, .xlsx):</label>
+            <input type="file" id="stockListFile" accept=".txt,.csv,.xlsx,.xls" />
+            <button type="button" id="uploadStockListBtn">Load matches</button>
+            <span id="uploadStatus" class="upload-status"></span>
+        </div>
     """
     
-    if df.empty:
-        html_content += """
-        <div class="no-results">
-            No matches found for the specified stocks.
-        </div>
-        """
-    else:
-        df_display = df.copy()
-
-        df_display["Link_Display"] = df_display.apply(select_link_display, axis=1)
-
-        # Define compact column order for UI
-        display_cols = ["Matched_Stock", "Source", "Published", "Description", "Link_Display", "Action"]
-
-        # Sort by matched stock name (alphabetical)
-        df_display = df_display.sort_values(by=["Matched_Stock"], kind="stable")
-
-        # Keyword highlight (optional, driven by config)
-        keywords = [k.strip() for k in (HIGHLIGHT_KEYWORDS or []) if str(k).strip()]
-        keywords_sorted = sorted(set(keywords), key=len, reverse=True)
-        keyword_pattern = None
-        if keywords_sorted:
-            keyword_pattern = re.compile("(" + "|".join(re.escape(k) for k in keywords_sorted) + ")", re.IGNORECASE)
-
-        def highlight_keywords(text: str) -> str:
-            """Escape HTML and wrap keyword matches with <span class='kw'>."""
-            if text is None:
-                text = ""
-            s = str(text)
-            # Escape HTML special chars first
-            s = s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-            if not keyword_pattern:
-                return s
-            return keyword_pattern.sub(lambda m: f'<span class="kw">{m.group(0)}</span>', s)
-
-        html_content += "<table>"
-        html_content += "<thead><tr>"
-        header_classes = {
-            "Matched_Stock": "col-stock",
-            "Source": "col-source",
-            "Published": "col-published",
-            "Description": "col-description",
-            "Link_Display": "col-link",
-            "Action": "col-action",
-        }
-        
-        # Track which stocks have buttons (one button per stock)
-        stocks_with_buttons = set()
-        for col in display_cols:
-            header = "Link" if col == "Link_Display" else col
-            cls = header_classes.get(col, "")
-            html_content += f"<th class=\"{cls}\">{header}</th>"
-        html_content += "</tr></thead>"
-        html_content += "<tbody id=\"resultsBody\">"
-
-        for _, row in df_display.iterrows():
-            # Determine if any configured keyword appears in this row (for row tinting)
-            row_text = f"{row.get('Description','')} {row.get('Title','')} {row.get('Link_Display','')} {row.get('Attachment','')} {row.get('XBRL_Link','')}"
-            kw_row = bool(keyword_pattern.search(str(row_text))) if keyword_pattern else False
-            neg_row = bool(row.get("Has_Negative"))
-            if neg_row:
-                html_content += "<tr class=\"neg-row\">"
-            elif kw_row:
-                html_content += "<tr class=\"kw-row\">"
-            else:
-                html_content += "<tr>"
-            
-            matched_stock = str(row.get("Matched_Stock", "")).strip()
-            show_button = matched_stock and matched_stock not in stocks_with_buttons
-            
-            for col in display_cols:
-                cell_value = str(row.get(col, "")) if pd.notna(row.get(col, "")) else ""
-                if col == "Link_Display" and cell_value:
-                    # Link column: add checkbox for PDFs, keep href as raw URL
-                    link_text = highlight_keywords(cell_value)
-                    is_pdf = cell_value.lower().endswith('.pdf')
-                    checkbox_html = ""
-                    if is_pdf:
-                        # Escape URL for data attribute
-                        url_escaped = cell_value.replace('"', '&quot;')
-                        stock_escaped = matched_stock.replace('"', '&quot;')
-                        checkbox_html = f'<input type="checkbox" class="pdf-checkbox" data-url="{url_escaped}" data-stock="{stock_escaped}">'
-                    html_content += f'<td class="{header_classes.get(col, "")}">{checkbox_html}<a href="{cell_value}" target="_blank">{link_text}</a></td>'
-                elif col == "Action":
-                    # Action column: show button only for first row of each stock
-                    if show_button:
-                        stocks_with_buttons.add(matched_stock)
-                        stock_escaped = matched_stock.replace('"', '&quot;')
-                        html_content += f'<td class="{header_classes.get(col, "")}"><button class="analyze-btn" data-stock="{stock_escaped}">Analyze PDFs</button></td>'
-                    else:
-                        html_content += f'<td class="{header_classes.get(col, "")}"></td>'
-                elif col == "Description":
-                    # Add tooltip with categorized keyword matches
-                    kw_tooltip = " | ".join(
-                        [s for s in [row.get("KW_Universal"), row.get("KW_Sector"), row.get("KW_Filters")] if s]
-                    )
-                    if kw_tooltip:
-                        html_content += f"<td class=\"{header_classes.get(col, '')}\" title=\"{kw_tooltip}\">{highlight_keywords(cell_value)}</td>"
-                    else:
-                        html_content += f"<td class=\"{header_classes.get(col, '')}\">{highlight_keywords(cell_value)}</td>"
-                else:
-                    # Escape HTML special characters
-                    cell_value = cell_value.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
-                    html_content += f"<td class=\"{header_classes.get(col, '')}\">{cell_value}</td>"
-            html_content += "</tr>"
-
-        html_content += "</tbody></table>"
-        
-        # Add modal for displaying results
-        html_content += """
+    # Table header (same for empty and non-empty)
+    header_classes = {
+        "Matched_Stock": "col-stock",
+        "Source": "col-source",
+        "Published": "col-published",
+        "Description": "col-description",
+        "Link_Display": "col-link",
+        "Action": "col-action",
+    }
+    html_content += "<table><thead><tr>"
+    for col, header in [("Matched_Stock", "Matched_Stock"), ("Source", "Source"), ("Published", "Published"), ("Description", "Description"), ("Link_Display", "Link"), ("Action", "Action")]:
+        cls = header_classes.get(col, "")
+        html_content += f"<th class=\"{cls}\">{header}</th>"
+    html_content += "</tr></thead><tbody id=\"resultsBody\"></tbody></table>"
+    
+    # No embedded data: table is filled by upload (search_with_file) or /all when served
+    # Add modal and scripts (same for empty and non-empty)
+    html_content += """
         <div id="resultModal" class="modal">
             <div class="modal-content">
                 <div class="modal-header">
@@ -909,10 +1017,14 @@ def generate_html_page(df, stocks_list, output_path, df_full=None):
             </div>
         </div>
         """
-        
-        html_content += f"""
+    
+    html_content += f"""
         <script>
             (function() {{
+                const SERVER_URL = (window.location && window.location.protocol === "http:") ? "" : "http://127.0.0.1:5005";
+                let HIGHLIGHT = [], NEGATIVE = [];
+
+                function runApp() {{
                 const input = document.getElementById("stockSearchInput");
                 const btn = document.getElementById("stockSearchBtn");
                 const resetBtn = document.getElementById("stockResetBtn");
@@ -920,10 +1032,27 @@ def generate_html_page(df, stocks_list, output_path, df_full=None):
                 const excelBtn = document.getElementById("excelSearchBtn");
                 const tbody = document.getElementById("resultsBody");
                 const totalMatchesEl = document.getElementById("totalMatches");
-                const stocksSearchedEl = document.getElementById("stocksSearched");
+                const stocksFoundCountEl = document.getElementById("stocksFoundCount");
+                const stocksFoundListEl = document.getElementById("stocksFoundList");
+                const stocksNotFoundCountEl = document.getElementById("stocksNotFoundCount");
+                const stocksNotFoundListEl = document.getElementById("stocksNotFoundList");
 
-                const HIGHLIGHT = {json.dumps([k for k in HIGHLIGHT_KEYWORDS if str(k).strip()])};
-                const NEGATIVE = {json.dumps([k for k in NEGATIVE_KEYWORDS if str(k).strip()])};
+                (function initTheme() {{
+                    const KEY = "rss_feed_theme";
+                    const saved = localStorage.getItem(KEY) || "dark";
+                    document.documentElement.setAttribute("data-theme", saved);
+                    const btn = document.getElementById("themeToggle");
+                    if (btn) {{
+                        btn.textContent = saved === "dark" ? "Light theme" : "Dark theme";
+                        btn.onclick = function() {{
+                            const current = document.documentElement.getAttribute("data-theme") || "dark";
+                            const next = current === "dark" ? "light" : "dark";
+                            document.documentElement.setAttribute("data-theme", next);
+                            localStorage.setItem(KEY, next);
+                            btn.textContent = next === "dark" ? "Light theme" : "Dark theme";
+                        }};
+                    }}
+                }})();
 
                 function normalize(s) {{
                     return (s || "").toString().toLowerCase().replace(/[^\\w\\s]/g, " ").replace(/\\s+/g, " ").trim();
@@ -943,32 +1072,44 @@ def generate_html_page(df, stocks_list, output_path, df_full=None):
                     return NEGATIVE.some(k => padded.includes(" " + normalize(k) + " "));
                 }}
 
-                function renderRows(rows, matchedStockLabel) {{
+                let ALL_ROWS = [];
+
+                function renderRows(rows, options) {{
+                    const opts = typeof options === "string" ? {{ label: options }} : (options || {{ label: "ALL" }});
                     tbody.innerHTML = "";
-                    const stockName = matchedStockLabel || (rows.length > 0 ? rows[0].Matched_Stock : "");
-                    let buttonShown = false; // Track if button already shown for this stock
-                    
-                    rows.forEach((r, index) => {{
+                    const shownButtons = new Set();
+                    const sorted = [...rows].sort((a, b) => {{
+                        const stockA = ((a.Matched_Stock || "").split(",")[0] || "").trim().toUpperCase();
+                        const stockB = ((b.Matched_Stock || "").split(",")[0] || "").trim().toUpperCase();
+                        if (stockA !== stockB) return stockA.localeCompare(stockB, "en", {{ sensitivity: "base" }});
+                        const dateA = Date.parse(a.Published || "") || 0;
+                        const dateB = Date.parse(b.Published || "") || 0;
+                        return dateB - dateA;
+                    }});
+                    const seenStockLink = new Set();
+                    const deduped = sorted.filter((r) => {{
+                        const stockKey = ((r.Matched_Stock || "").split(",")[0] || "").trim().toUpperCase();
+                        const link = (r.Link || "").trim();
+                        const key = stockKey + "|" + link;
+                        if (seenStockLink.has(key)) return false;
+                        seenStockLink.add(key);
+                        return true;
+                    }});
+                    deduped.forEach((r) => {{
                         const negRow = !!r.Has_Negative || isNegative(r.Row_Blob || "");
                         const tr = document.createElement("tr");
                         if (negRow) tr.className = "neg-row";
                         const tooltip = [r.KW_Universal, r.KW_Sector, r.KW_Filters].filter(Boolean).join(" | ");
-                        
-                        // Check if link is PDF
                         const link = r.Link || "";
                         const isPdf = link.toLowerCase().endsWith('.pdf');
-                        const stockEscaped = (stockName || "").replace(/"/g, '&quot;');
+                        const stockName = (r.Matched_Stock || "").toString();
+                        const stockEscaped = stockName.replace(/"/g, '&quot;');
                         const linkEscaped = link.replace(/"/g, '&quot;');
-                        
-                        // Add checkbox for PDF links
                         const checkboxHtml = isPdf ? `<input type="checkbox" class="pdf-checkbox" data-url="${{linkEscaped}}" data-stock="${{stockEscaped}}">` : "";
-                        
-                        // Show button only on first row for this stock
-                        const showButton = !buttonShown && stockName;
-                        if (showButton) buttonShown = true;
-                        
+                        const showButton = stockName && !shownButtons.has(stockName);
+                        if (showButton) shownButtons.add(stockName);
                         tr.innerHTML = `
-                            <td class="col-stock">${{stockName || r.Matched_Stock || ""}}</td>
+                            <td class="col-stock">${{stockName}}</td>
                             <td class="col-source">${{r.Source || ""}}</td>
                             <td class="col-published">${{r.Published || ""}}</td>
                             <td class="col-description" title="${{tooltip}}">${{highlight(r.Description || "")}}</td>
@@ -977,10 +1118,18 @@ def generate_html_page(df, stocks_list, output_path, df_full=None):
                         `;
                         tbody.appendChild(tr);
                     }});
-                    totalMatchesEl.textContent = rows.length.toString();
-                    stocksSearchedEl.textContent = stockName || "";
-                    
-                    // Note: Event delegation handles buttons automatically, no need to call setupAnalyzeButtons()
+                    totalMatchesEl.textContent = deduped.length.toString();
+                    if (opts.stocks_found && Array.isArray(opts.stocks_found) && opts.stocks_not_found && Array.isArray(opts.stocks_not_found)) {{
+                        stocksFoundCountEl.textContent = opts.stocks_found.length;
+                        stocksFoundListEl.textContent = opts.stocks_found.length ? opts.stocks_found.join(", ") : "—";
+                        stocksNotFoundCountEl.textContent = opts.stocks_not_found.length;
+                        stocksNotFoundListEl.textContent = opts.stocks_not_found.length ? opts.stocks_not_found.join(", ") : "—";
+                    }} else {{
+                        stocksFoundCountEl.textContent = "—";
+                        stocksFoundListEl.textContent = "";
+                        stocksNotFoundCountEl.textContent = "—";
+                        stocksNotFoundListEl.textContent = "";
+                    }}
                 }}
 
                 function applyFilter() {{
@@ -996,7 +1145,6 @@ def generate_html_page(df, stocks_list, output_path, df_full=None):
                 function searchExcel() {{
                     const qRaw = (excelInput.value || "").trim();
                     if (!qRaw) return;
-                    const SERVER_URL = "http://127.0.0.1:5005";
                     fetch(`${{SERVER_URL}}/search?stock=${{encodeURIComponent(qRaw)}}`)
                         .then(r => {{
                             if (!r.ok) {{
@@ -1025,54 +1173,81 @@ def generate_html_page(df, stocks_list, output_path, df_full=None):
                 excelInput.addEventListener("keydown", (e) => {{
                     if (e.key === "Enter") searchExcel();
                 }});
+
+                const uploadBtn = document.getElementById("uploadStockListBtn");
+                const fileInput = document.getElementById("stockListFile");
+                const uploadStatus = document.getElementById("uploadStatus");
+                if (uploadBtn && fileInput) {{
+                    uploadBtn.addEventListener("click", () => {{
+                        const file = fileInput.files[0];
+                        if (!file) {{
+                            if (uploadStatus) uploadStatus.textContent = "Please select a file.";
+                            return;
+                        }}
+                        if (uploadStatus) uploadStatus.textContent = "Loading...";
+                        const formData = new FormData();
+                        formData.append("file", file);
+                        fetch(`${{SERVER_URL}}/search_with_file`, {{
+                            method: "POST",
+                            body: formData
+                        }})
+                            .then(r => {{
+                                if (!r.ok) throw new Error(r.status === 400 ? "Invalid file or no stocks in file." : `Server error: ${{r.status}}`);
+                                return r.json();
+                            }})
+                            .then(data => {{
+                                ALL_ROWS = data.results || [];
+                                renderRows(ALL_ROWS, {{
+                                    label: "UPLOADED",
+                                    stocks_found: data.stocks_found || [],
+                                    stocks_not_found: data.stocks_not_found || []
+                                }});
+                                if (uploadStatus) uploadStatus.textContent = `Loaded ${{ALL_ROWS.length}} match(es).`;
+                            }})
+                            .catch(err => {{
+                                if (uploadStatus) uploadStatus.textContent = "";
+                                alert(err.message || "Upload failed.");
+                            }});
+                    }});
+                }}
+
+                // Initial load: fetch /all (may be empty); user can upload a stock list file to load matches
+                fetch(`${{SERVER_URL}}/all`)
+                    .then(r => {{
+                        if (!r.ok) throw new Error(`Server error: ${{r.status}}`);
+                        return r.json();
+                    }})
+                    .then(data => {{
+                        ALL_ROWS = data.results || [];
+                        renderRows(ALL_ROWS, data.stock || "ALL");
+                    }})
+                    .catch((error) => {{
+                        console.error("Load /all error:", error);
+                    }});
+                }} // end runApp
+
+                fetch((SERVER_URL || "http://127.0.0.1:5005") + "/keywords")
+                    .then(r => r.ok ? r.json() : Promise.reject(new Error(r.status)))
+                    .then(data => {{
+                        HIGHLIGHT = Array.isArray(data.highlight) ? data.highlight : [];
+                        NEGATIVE = Array.isArray(data.negative) ? data.negative : [];
+                        runApp();
+                    }})
+                    .catch(() => runApp());
             }})();
         </script>
         """
-        html_content += """
-        <script>
-            (function() {
-                const input = document.getElementById("stockSearchInput");
-                const btn = document.getElementById("stockSearchBtn");
-                const resetBtn = document.getElementById("stockResetBtn");
-                const rows = Array.from(document.querySelectorAll("table tr")).slice(1);
-
-                function normalize(s) {
-                    return (s || "").toString().trim().toUpperCase();
-                }
-
-                function applyFilter() {
-                    const q = normalize(input.value);
-                    rows.forEach(row => {
-                        const stockCell = row.querySelector("td.col-stock");
-                        const text = normalize(stockCell ? stockCell.textContent : "");
-                        if (!q || text.includes(q)) {
-                            row.style.display = "";
-                        } else {
-                            row.style.display = "none";
-                        }
-                    });
-                }
-
-                btn.addEventListener("click", applyFilter);
-                input.addEventListener("keydown", (e) => {
-                    if (e.key === "Enter") {
-                        applyFilter();
-                    }
-                });
-                resetBtn.addEventListener("click", () => {
-                    input.value = "";
-                    applyFilter();
-                });
-            })();
-        </script>
-        
+    
+    # Raw string for JS regex to avoid Python "invalid escape sequence" warning
+    _js_regex_word_hyphen = r"\w\-"
+    html_content += """
         <script>
             // PDF Analysis functionality
             (function() {
                 const modal = document.getElementById("resultModal");
                 const modalBody = document.getElementById("modalBody");
                 const closeBtn = document.querySelector(".close");
-                const SERVER_URL = "http://127.0.0.1:5005";
+                const SERVER_URL = (window.location && window.location.protocol === "http:") ? "" : "http://127.0.0.1:5005";
                 
                 // Check if modal elements exist
                 if (!modal || !modalBody) {
@@ -1101,26 +1276,31 @@ def generate_html_page(df, stocks_list, output_path, df_full=None):
                         const stockName = btn.getAttribute("data-stock");
                         if (!stockName) return;
                             
-                            // Collect checked PDF URLs for this stock
-                            const checkboxes = document.querySelectorAll(`.pdf-checkbox[data-stock="${stockName}"]:checked`);
-                            const pdfUrls = Array.from(checkboxes).map(cb => cb.getAttribute("data-url"));
+                            // If any checkbox selected: use only those PDFs; else use all PDFs for this stock
+                            const checked = document.querySelectorAll(`.pdf-checkbox[data-stock="${{stockName}}"]:checked`);
+                            const allForStock = document.querySelectorAll(`.pdf-checkbox[data-stock="${{stockName}}"]`);
+                            const pdfUrls = checked.length > 0
+                                ? Array.from(checked).map(cb => cb.getAttribute("data-url"))
+                                : Array.from(allForStock).map(cb => cb.getAttribute("data-url"));
                             
                             if (pdfUrls.length === 0) {
-                                alert("Please select at least one PDF to analyze.");
+                                alert("No PDFs found for this stock.");
                                 return;
                             }
                             
-                            // For now, only process first PDF (as per requirement)
-                            const selectedPdfUrl = pdfUrls[0];
+                            const pdfCount = pdfUrls.length;
+                            const loadingDetail = pdfCount > 1
+                                ? `Processing ${{pdfCount}} PDF(s)...`
+                                : `Downloading and analyzing: ${{pdfUrls[0].substring(0, 50)}}${{pdfUrls[0].length > 50 ? '...' : ''}}`;
                             
                             // Show modal with loading immediately
                             modal.style.display = "block";
                             modalBody.innerHTML = `
                                 <div class="loading">
                                     <div class="spinner"></div>
-                                    <div class="loading-text">Processing PDF...</div>
+                                    <div class="loading-text">${{pdfCount > 1 ? 'Processing ' + pdfCount + ' PDF(s)...' : 'Processing PDF...'}}</div>
                                     <div class="loading-text" style="font-size: 12px; color: #999; margin-top: 5px;">
-                                        Downloading and analyzing: ${selectedPdfUrl.substring(0, 50)}${selectedPdfUrl.length > 50 ? '...' : ''}
+                                        ${{loadingDetail}}
                                     </div>
                                     <div class="loading-text" style="font-size: 11px; color: #999; margin-top: 10px;">
                                         This may take a few moments...
@@ -1141,7 +1321,7 @@ def generate_html_page(df, stocks_list, output_path, df_full=None):
                                 },
                                 body: JSON.stringify({
                                     stock: stockName,
-                                    pdf_urls: [selectedPdfUrl]
+                                    pdf_urls: pdfUrls
                                 })
                             })
                             .then(response => response.json())
@@ -1149,12 +1329,27 @@ def generate_html_page(df, stocks_list, output_path, df_full=None):
                                 if (data.error) {
                                     modalBody.innerHTML = `<div class="error">Error: ${data.error}</div>`;
                                 } else {
-                                    // Display JSON result
+                                    const sections = formatAnalysisResultSections(data.result);
+                                    const meta = data.processed_count != null && data.total_count != null
+                                        ? `<div style="margin-top: 6px; font-size: 12px; color: var(--loading);">Processed ${data.processed_count} of ${data.total_count} PDF(s)${data.message ? " — " + data.message : ""}</div>`
+                                        : "";
+                                    let resultHtml = sections.map(s => `
+                                        <div class="result-section" style="margin-bottom: 14px;">
+                                            <div class="result-heading" style="font-weight: 700; margin-bottom: 4px;">${escapeHtml(s.heading)}</div>
+                                            <div class="result-content" style="white-space: pre-wrap; font-size: 13px; padding-left: 8px;">${escapeHtml(s.content)}</div>
+                                        </div>
+                                    `).join("");
+                                    const downloadFilename = getDownloadPdfFilename(data.stock);
                                     modalBody.innerHTML = `
                                         <div><strong>Stock:</strong> ${data.stock}</div>
+                                        ${meta}
+                                        <div style="margin-top: 12px; margin-bottom: 10px;">
+                                            <button type="button" class="download-pdf-btn" id="downloadPdfBtn" data-stock="${escapeHtml(data.stock)}" data-filename="${escapeHtml(downloadFilename)}">Download as PDF</button>
+                                        </div>
                                         <div style="margin-top: 10px;"><strong>Result:</strong></div>
-                                        <div class="json-display">${escapeHtml(data.result)}</div>
+                                        <div class="result-display" id="modalResultContent">${resultHtml}</div>
                                     `;
+                                    attachDownloadPdfHandler(data.result, data.stock);
                                 }
                             })
                             .catch(error => {
@@ -1174,6 +1369,78 @@ def generate_html_page(df, stocks_list, output_path, df_full=None):
                     return div.innerHTML;
                 }
                 
+                const SECTION_LABELS = {
+                    growth_orders: "Growth / orders",
+                    margins_costs: "Margins / costs",
+                    capex_capacity: "Capex / capacity",
+                    balance_sheet: "Balance sheet",
+                    management_outlook: "Management outlook",
+                    strategic_events: "Strategic events"
+                };
+                function formatAnalysisResultSections(result) {
+                    if (!result) return [];
+                    try {
+                        const obj = typeof result === "string" ? JSON.parse(result) : result;
+                        if (!obj || typeof obj !== "object") return [{ heading: "Result", content: String(result) }];
+                        const sections = [];
+                        for (const key of Object.keys(obj)) {
+                            const val = obj[key];
+                            if (val == null || val === "") continue;
+                            const heading = SECTION_LABELS[key] || key;
+                            const content = typeof val === "string" ? val : JSON.stringify(val, null, 2);
+                            sections.push({ heading, content });
+                        }
+                        return sections.length ? sections : [{ heading: "Result", content: String(result) }];
+                    } catch (e) {
+                        return [{ heading: "Result", content: String(result) }];
+                    }
+                }
+                function getDownloadPdfFilename(stockName) {
+                    const safe = (stockName || "stock").replace(/[^""" + _js_regex_word_hyphen + """]/g, "_");
+                    const now = new Date();
+                    const date = now.toISOString().slice(0, 10);
+                    const time = now.toTimeString().slice(0, 8).replace(/:/g, "-");
+                    return `${safe}_${date}_${time}.pdf`;
+                }
+                function attachDownloadPdfHandler(result, stockName) {
+                    const btn = document.getElementById("downloadPdfBtn");
+                    const lib = typeof jspdf !== "undefined" ? jspdf : window.jspdf;
+                    if (!btn || !lib) return;
+                    btn.onclick = function() {
+                        const sections = formatAnalysisResultSections(result);
+                        const { jsPDF } = lib;
+                        const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+                        const margin = 20;
+                        const pageW = doc.internal.pageSize.getWidth();
+                        let y = margin;
+                        const lineH = 6;
+                        const headH = 8;
+                        doc.setFontSize(14);
+                        doc.text("PDF Analysis Result", margin, y);
+                        y += 10;
+                        doc.setFontSize(11);
+                        doc.text("Stock: " + (stockName || ""), margin, y);
+                        y += 12;
+                        doc.setFontSize(10);
+                        for (const s of sections) {
+                            if (y > 270) { doc.addPage(); y = margin; }
+                            doc.setFont(undefined, "bold");
+                            doc.text(s.heading, margin, y);
+                            y += headH;
+                            doc.setFont(undefined, "normal");
+                            const lines = doc.splitTextToSize(s.content || "", pageW - 2 * margin);
+                            for (const line of lines) {
+                                if (y > 275) { doc.addPage(); y = margin; }
+                                doc.text(line, margin, y);
+                                y += lineH;
+                            }
+                            y += 6;
+                        }
+                        const filename = getDownloadPdfFilename(stockName);
+                        doc.save(filename);
+                    };
+                }
+
                 // Event delegation is already set up above, so buttons work automatically
                 // No need for setupAnalyzeButtons() since we use document-level event listener
             })();
@@ -1190,7 +1457,10 @@ def generate_html_page(df, stocks_list, output_path, df_full=None):
     total_matches = len(df)
     html_content = html_content.replace("{stocks_searched}", stocks_searched)
     html_content = html_content.replace("{total_matches}", str(total_matches))
-    
+    # Emit valid JavaScript: Python template uses ${{ }} and }} for JS; convert to ${ } and }
+    html_content = html_content.replace("${{", "${")
+    html_content = html_content.replace("}}", "}")
+
     # Write to file
     with open(output_path, 'w', encoding='utf-8') as f:
         f.write(html_content)
@@ -1530,135 +1800,24 @@ def run_full_fetch():
     return df_final
 
 
-def run_test_mode():
-    # Do not fetch anything; load existing Excel and proceed to search + HTML
-    if not os.path.exists(EXCEL_FILE):
-        print(f"Error: Excel file not found at {EXCEL_FILE}")
-        return pd.DataFrame()
-    df_final = pd.read_excel(EXCEL_FILE)
-    if "Source" not in df_final.columns:
-        df_final.insert(0, "Source", "")
-    return df_final
-
-
-def is_running_in_ci():
-    """Check if code is running in CI/GitHub Actions environment"""
-    # Check for GitHub Actions
-    if os.environ.get('GITHUB_ACTIONS') == 'true':
-        return True
-    # Check for generic CI environment variable
-    if os.environ.get('CI') == 'true':
-        return True
-    # Check if stdin is not a TTY (non-interactive)
-    if not sys.stdin.isatty():
-        return True
-    return False
-
-def is_interactive():
-    """Check if code is running in interactive environment (CMD/Cursor)"""
-    return not is_running_in_ci()
-
-
-def choose_run_mode():
-    if not is_interactive():
-        return "full"
-    mode = input("\nRun mode (test/full)? [full]: ").strip().lower()
-    return mode if mode in ["test", "full"] else "full"
-
-
 def main():
-    # Decide run mode
-    run_mode = choose_run_mode()
-    if run_mode == "test":
-        print("\nTest mode: skipping fetch and using existing Excel.")
-        df_final = run_test_mode()
-    else:
-        df_final = run_full_fetch()
+    # Always run full fetch (RSS feeds + NSE pages), save to Excel, generate shell HTML
+    df_final = run_full_fetch()
 
-    # =====================
-    # USER PROMPT: STOCK LIST FILTERING
-    # =====================
-    # Only show prompt if running interactively (not in CI/GitHub Actions)
-    if is_interactive():
-        user_input = input("\nDo you want to filter by a list of stocks? (yes/no): ").strip().lower()
-    else:
-        # Running in CI/GitHub Actions - skip stock filtering
-        print("\nRunning in CI environment - skipping stock list filtering.")
-        user_input = 'no'
+    # Save to Excel
+    try:
+        df_final.to_excel(EXCEL_FILE, index=False)
+        print(f"\nSuccessfully saved to {EXCEL_FILE}")
+    except PermissionError:
+        print(f"\nError: Cannot save to {EXCEL_FILE}")
+        print("  Please close the Excel file and try again.")
+    except Exception as e:
+        print(f"\nError saving file: {str(e)}")
 
-    if user_input in ['yes', 'y']:
-        # Get stocks list file path (only in interactive mode)
-        if is_interactive():
-            stocks_file_path = input("Enter the path to the stocks list file (.txt, .csv, or .xlsx): ").strip()
-        else:
-            # In CI mode, skip stock filtering
-            print("Stock filtering skipped in CI environment.")
-            stocks_file_path = None
-        
-        if stocks_file_path:
-            # Remove quotes if user pasted path with quotes
-            stocks_file_path = stocks_file_path.strip('"').strip("'")
-            
-            if not os.path.exists(stocks_file_path):
-                print(f"Error: File not found at {stocks_file_path}")
-                print("Proceeding with saving Excel file only...")
-            else:
-                # Read stocks list
-                print(f"\nReading stocks list from {stocks_file_path}...")
-                stocks_list = read_stocks_list(stocks_file_path)
-                
-                if not stocks_list:
-                    print("No stocks found in the file. Proceeding with saving Excel file only...")
-                else:
-                    print(f"Found {len(stocks_list)} stocks to search: {', '.join(stocks_list[:10])}{'...' if len(stocks_list) > 10 else ''}")
-                    
-                    # Load stock symbol to company name mapping
-                    print("\nLoading stock symbol to company name mapping...")
-                    symbol_to_company_map = load_stock_company_mapping()
-                    
-                    # Show which company names were found
-                    if symbol_to_company_map:
-                        found_companies = []
-                        for symbol in stocks_list[:10]:  # Show first 10
-                            if symbol in symbol_to_company_map:
-                                found_companies.append(f"{symbol} -> {symbol_to_company_map[symbol]}")
-                        if found_companies:
-                            print(f"Company names found: {', '.join(found_companies)}{'...' if len(stocks_list) > 10 else ''}")
-                    
-                    # Search for stocks in the DataFrame using both symbol and company name
-                    print("\nSearching for stocks in NSE RSS feed data (using symbols and company names with fuzzy matching)...")
-                    matched_df = search_stocks_in_dataframe(df_final, stocks_list, symbol_to_company_map)
-                    
-                    if matched_df.empty:
-                        print("No matches found for the specified stocks.")
-                    else:
-                        print(f"Found {len(matched_df)} matching records!")
-                        
-                        # Generate HTML page
-                        html_output_path = os.path.join(DATA_DIR, "stock_matches.html")
-                        print(f"\nGenerating HTML page at {html_output_path}...")
-                        generate_html_page(matched_df, stocks_list, html_output_path, df_full=df_final)
-                        
-                        # Open in browser (only in interactive mode)
-                        if is_interactive():
-                            print("Opening HTML page in browser...")
-                            webbrowser.open(f"file:///{html_output_path.replace(os.sep, '/')}")
-                            print("HTML page opened in browser.")
-                        else:
-                            print(f"HTML page generated at {html_output_path} (browser not opened in CI environment)")
-
-    # =====================
-    # SAVE TO EXCEL (only in full mode)
-    # =====================
-    if run_mode == "full":
-        try:
-            df_final.to_excel(EXCEL_FILE, index=False)
-            print(f"\nSuccessfully saved to {EXCEL_FILE}")
-        except PermissionError:
-            print(f"\nError: Cannot save to {EXCEL_FILE}")
-            print("  Please close the Excel file and try again.")
-        except Exception as e:
-            print(f"\nError saving file: {str(e)}")
+    # Generate UI page (shell: upload stock list in browser)
+    html_output_path = os.path.join(DATA_DIR, "stock_matches.html")
+    generate_html_page(pd.DataFrame(), [], html_output_path)
+    print(f"\nUI page at {html_output_path}. Open http://127.0.0.1:5005/ (with server running) and upload a stock list file.")
 
 
 if __name__ == "__main__":

@@ -1,20 +1,144 @@
 
     <!DOCTYPE html>
-    <html>
+    <html data-theme="dark">
     <head>
         <title>NSE RSS Feed - Stock Matches</title>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
         <style>
+            :root {
+                --bg: #f5f5f5;
+                --text: #333;
+                --info-bg: #e7f3ff;
+                --info-border: transparent;
+                --input-bg: #fff;
+                --input-border: #ccc;
+                --input-text: #333;
+                --input-placeholder: #999;
+                --btn-bg: #f8f8f8;
+                --btn-border: #ccc;
+                --btn-text: #333;
+                --btn-hover-bg: #eee;
+                --table-bg: #fff;
+                --table-shadow: 0 1px 3px rgba(0,0,0,0.08);
+                --th-bg: #4CAF50;
+                --th-text: #fff;
+                --th-border: transparent;
+                --td-border: #eee;
+                --td-text: #333;
+                --tr-hover: #f5f5f5;
+                --kw-row-bg: #fff8d6;
+                --neg-row-bg: #ffe3e3;
+                --kw-bg: #ffeb3b;
+                --kw-text: #333;
+                --link: #0066cc;
+                --link-hover: #004499;
+                --no-results: #666;
+                --analyze-bg: #4CAF50;
+                --analyze-text: #fff;
+                --analyze-border: transparent;
+                --analyze-hover: #45a049;
+                --analyze-disabled-bg: #ccc;
+                --analyze-disabled-text: #666;
+                --modal-overlay: rgba(0,0,0,0.4);
+                --modal-bg: #fefefe;
+                --modal-border: #888;
+                --modal-header-border: #ddd;
+                --modal-title: #333;
+                --close: #aaa;
+                --close-hover: #000;
+                --loading: #666;
+                --spinner-track: #f3f3f3;
+                --spinner-top: #4CAF50;
+                --error-text: #d32f2f;
+                --error-bg: #ffebee;
+                --error-border: transparent;
+                --json-bg: #f5f5f5;
+                --json-text: #333;
+                --json-border: transparent;
+            }
+            html[data-theme="dark"] {
+                --bg: #1a1a1a;
+                --text: #e0e0e0;
+                --info-bg: #2d2d2d;
+                --info-border: #404040;
+                --input-bg: #2d2d2d;
+                --input-border: #404040;
+                --input-text: #e0e0e0;
+                --input-placeholder: #888;
+                --btn-bg: #3d3d3d;
+                --btn-border: #404040;
+                --btn-text: #e0e0e0;
+                --btn-hover-bg: #4a4a4a;
+                --table-bg: #252525;
+                --table-shadow: 0 1px 3px rgba(0,0,0,0.3);
+                --th-bg: #383838;
+                --th-text: #e8e8e8;
+                --th-border: #505050;
+                --td-border: #353535;
+                --td-text: #d0d0d0;
+                --tr-hover: #2f2f2f;
+                --kw-row-bg: #3d3828;
+                --neg-row-bg: #3d2d2d;
+                --kw-bg: #5c5526;
+                --kw-text: #e8e088;
+                --link: #7eb8da;
+                --link-hover: #9dd4f5;
+                --no-results: #888;
+                --analyze-bg: #4a5568;
+                --analyze-text: #e0e0e0;
+                --analyze-border: #5a6578;
+                --analyze-hover: #5a6578;
+                --analyze-disabled-bg: #3d3d3d;
+                --analyze-disabled-text: #666;
+                --modal-overlay: rgba(0,0,0,0.6);
+                --modal-bg: #252525;
+                --modal-border: #404040;
+                --modal-header-border: #404040;
+                --modal-title: #e8e8e8;
+                --close: #888;
+                --close-hover: #e0e0e0;
+                --loading: #888;
+                --spinner-track: #3d3d3d;
+                --spinner-top: #6b7280;
+                --error-text: #f08a8a;
+                --error-bg: #3d2d2d;
+                --error-border: #5a4040;
+                --json-bg: #1a1a1a;
+                --json-text: #c0c0c0;
+                --json-border: #404040;
+            }
             body {
                 font-family: Arial, sans-serif;
                 margin: 16px;
-                background-color: #f5f5f5;
+                background-color: var(--bg);
+                color: var(--text);
+            }
+            .theme-toggle-wrap {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                margin-bottom: 12px;
+                justify-content: flex-end;
+            }
+            .theme-toggle {
+                padding: 6px 12px;
+                font-size: 12px;
+                border-radius: 4px;
+                border: 1px solid var(--btn-border);
+                background: var(--btn-bg);
+                color: var(--btn-text);
+                cursor: pointer;
+            }
+            .theme-toggle:hover {
+                background: var(--btn-hover-bg);
             }
             .info {
-                background-color: #e7f3ff;
+                background-color: var(--info-bg);
                 padding: 10px 12px;
                 border-radius: 5px;
                 margin-bottom: 12px;
                 font-size: 12px;
+                border: 1px solid var(--info-border);
             }
             .search-bar {
                 display: flex;
@@ -22,31 +146,52 @@
                 justify-content: flex-end;
                 margin-bottom: 12px;
             }
+            .upload-bar {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                margin-bottom: 12px;
+                flex-wrap: wrap;
+            }
+            .upload-bar input[type="file"] {
+                font-size: 12px;
+            }
+            .upload-label { font-size: 12px; }
+            .upload-status { font-size: 12px; color: var(--loading); }
             .search-bar input {
                 padding: 6px 8px;
-                border: 1px solid #ccc;
+                border: 1px solid var(--input-border);
                 border-radius: 4px;
                 font-size: 12px;
                 min-width: 220px;
+                background-color: var(--input-bg);
+                color: var(--input-text);
+            }
+            .search-bar input::placeholder {
+                color: var(--input-placeholder);
             }
             .search-bar button {
                 padding: 6px 10px;
-                border: 1px solid #ccc;
+                border: 1px solid var(--btn-border);
                 border-radius: 4px;
-                background: #f8f8f8;
+                background: var(--btn-bg);
+                color: var(--btn-text);
                 font-size: 12px;
                 cursor: pointer;
+            }
+            .search-bar button:hover {
+                background: var(--btn-hover-bg);
             }
             table {
                 width: 100%;
                 border-collapse: collapse;
-                background-color: white;
-                box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+                background-color: var(--table-bg);
+                box-shadow: var(--table-shadow);
                 table-layout: fixed;
             }
             th {
-                background-color: #4CAF50;
-                color: white;
+                background-color: var(--th-bg);
+                color: var(--th-text);
                 padding: 8px 10px;
                 text-align: left;
                 font-weight: 600;
@@ -54,18 +199,19 @@
                 position: sticky;
                 top: 0;
                 z-index: 1;
+                border-bottom: 1px solid var(--th-border);
             }
             td {
                 padding: 6px 10px;
-                border-bottom: 1px solid #eee;
+                border-bottom: 1px solid var(--td-border);
                 font-size: 12px;
                 line-height: 1.3;
                 white-space: nowrap;
                 overflow: hidden;
                 text-overflow: ellipsis;
                 vertical-align: top;
+                color: var(--td-text);
             }
-            /* Wrap long text for Description and Link columns */
             td.col-description,
             td.col-link {
                 white-space: normal;
@@ -75,31 +221,33 @@
                 overflow-wrap: anywhere;
             }
             tr:hover {
-                background-color: #f5f5f5;
+                background-color: var(--tr-hover);
             }
             tr.kw-row td {
-                background-color: #fff8d6;
+                background-color: var(--kw-row-bg);
             }
             tr.neg-row td {
-                background-color: #ffe3e3;
+                background-color: var(--neg-row-bg);
             }
             .kw {
-                background: #ffeb3b;
+                background: var(--kw-bg);
+                color: var(--kw-text);
                 padding: 0 2px;
                 border-radius: 2px;
                 font-weight: 600;
             }
             a {
-                color: #0066cc;
+                color: var(--link);
                 text-decoration: none;
             }
             a:hover {
                 text-decoration: underline;
+                color: var(--link-hover);
             }
             .no-results {
                 text-align: center;
                 padding: 32px;
-                color: #666;
+                color: var(--no-results);
                 font-size: 14px;
             }
             .col-stock { width: 6%; }
@@ -111,18 +259,32 @@
             .analyze-btn {
                 padding: 4px 8px;
                 font-size: 11px;
-                background-color: #4CAF50;
-                color: white;
-                border: none;
+                background-color: var(--analyze-bg);
+                color: var(--analyze-text);
+                border: 1px solid var(--analyze-border);
                 border-radius: 3px;
                 cursor: pointer;
             }
             .analyze-btn:hover {
-                background-color: #45a049;
+                background-color: var(--analyze-hover);
             }
             .analyze-btn:disabled {
-                background-color: #ccc;
+                background-color: var(--analyze-disabled-bg);
+                color: var(--analyze-disabled-text);
+                border-color: var(--analyze-disabled-bg);
                 cursor: not-allowed;
+            }
+            .download-pdf-btn {
+                padding: 8px 14px;
+                font-size: 13px;
+                background-color: var(--analyze-bg);
+                color: var(--analyze-text);
+                border: 1px solid var(--analyze-border);
+                border-radius: 4px;
+                cursor: pointer;
+            }
+            .download-pdf-btn:hover {
+                background-color: var(--analyze-hover);
             }
             .pdf-checkbox {
                 margin-right: 6px;
@@ -136,49 +298,50 @@
                 width: 100%;
                 height: 100%;
                 overflow: auto;
-                background-color: rgba(0,0,0,0.4);
+                background-color: var(--modal-overlay);
             }
             .modal-content {
-                background-color: #fefefe;
+                background-color: var(--modal-bg);
                 margin: 5% auto;
                 padding: 20px;
-                border: 1px solid #888;
+                border: 1px solid var(--modal-border);
                 width: 80%;
                 max-width: 900px;
                 border-radius: 5px;
                 max-height: 80vh;
                 overflow-y: auto;
+                color: var(--text);
             }
             .modal-header {
                 display: flex;
                 justify-content: space-between;
                 align-items: center;
                 margin-bottom: 15px;
-                border-bottom: 1px solid #ddd;
+                border-bottom: 1px solid var(--modal-header-border);
                 padding-bottom: 10px;
             }
             .modal-title {
                 font-size: 18px;
                 font-weight: bold;
-                color: #333;
+                color: var(--modal-title);
             }
             .close {
-                color: #aaa;
+                color: var(--close);
                 font-size: 28px;
                 font-weight: bold;
                 cursor: pointer;
             }
             .close:hover {
-                color: #000;
+                color: var(--close-hover);
             }
             .loading {
                 text-align: center;
                 padding: 40px 20px;
-                color: #666;
+                color: var(--loading);
             }
             .spinner {
-                border: 4px solid #f3f3f3;
-                border-top: 4px solid #4CAF50;
+                border: 4px solid var(--spinner-track);
+                border-top: 4px solid var(--spinner-top);
                 border-radius: 50%;
                 width: 40px;
                 height: 40px;
@@ -189,19 +352,17 @@
                 0% { transform: rotate(0deg); }
                 100% { transform: rotate(360deg); }
             }
-            .loading-text {
-                font-size: 14px;
-                margin-top: 10px;
-            }
+            .loading-text { font-size: 14px; margin-top: 10px; }
             .error {
-                color: #d32f2f;
+                color: var(--error-text);
                 padding: 10px;
-                background-color: #ffebee;
+                background-color: var(--error-bg);
+                border: 1px solid var(--error-border);
                 border-radius: 4px;
                 margin: 10px 0;
             }
             .json-display {
-                background-color: #f5f5f5;
+                background-color: var(--json-bg);
                 padding: 15px;
                 border-radius: 4px;
                 font-family: 'Courier New', monospace;
@@ -210,13 +371,19 @@
                 word-wrap: break-word;
                 max-height: 60vh;
                 overflow-y: auto;
+                color: var(--json-text);
+                border: 1px solid var(--json-border);
             }
         </style>
     </head>
     <body>
+        <div class="theme-toggle-wrap">
+            <button type="button" class="theme-toggle" id="themeToggle" aria-label="Toggle theme">Dark</button>
+        </div>
         <div class="info">
-            <strong>Stocks Searched:</strong> <span id="stocksSearched">EMCURE, UJJIVANSFB, MUTHOOTFIN, SHRIRAMFIN, JKTYRE, IDFCFIRSTB, AETHER, SAIL, BANKBARODA, TATASTEEL, INDIANB, NORTHARC, APLAPOLLO, SKFINDUS, DCBBANK, UNIONBANK, ANANDRATHI, AUBANK, FORCEMOT, CUB</span><br>
-            <strong>Total Matches Found:</strong> <span id="totalMatches">100</span>
+            <strong>Stocks found</strong> – <span id="stocksFoundCount">0</span> – <span id="stocksFoundList"></span><br>
+            <strong>Stocks not found</strong> – <span id="stocksNotFoundCount">0</span> – <span id="stocksNotFoundList"></span><br>
+            <strong>Total Matches Found:</strong> <span id="totalMatches">0</span>
         </div>
         <div class="search-bar">
             <input id="stockSearchInput" type="text" placeholder="Filter current results (e.g., TCS)" />
@@ -226,7 +393,13 @@
             <input id="excelSearchInput" type="text" placeholder="Search Excel by stock (e.g., TCS)" />
             <button id="excelSearchBtn" type="button">Search Excel</button>
         </div>
-    <table><thead><tr><th class="col-stock">Matched_Stock</th><th class="col-source">Source</th><th class="col-published">Published</th><th class="col-description">Description</th><th class="col-link">Link</th><th class="col-action">Action</th></tr></thead><tbody id="resultsBody"><tr><td class="col-stock">AETHER</td><td class="col-source">NSE_Corporate_Filings_All</td><td class="col-published">17-Jan-2026 12:12:27</td><td class="col-description">In accordance with Regulation 30 of the SEBI (Listing Obligation and DisclosureRequirements) Regulations, 2015, we herewith inform that the Nomination and RemunerationCommittee of the Company on January 17, 2026, has approved the issue and allotment of31,025 Equity Shares of Face Value of Rs. 10 each at exercise price of Rs. 400/- eachpursuant to  Aether Industries Limited Employee Stock Option Scheme 2021  (herein referredas AIL ESOS 2021) to eligible employees upon exercise of Options, as annexed.</td><td class="col-link"><input type="checkbox" class="pdf-checkbox" data-url="https://nsearchives.nseindia.com/corporate/AETHER_17012026121218_55.pdf" data-stock="AETHER"><a href="https://nsearchives.nseindia.com/corporate/AETHER_17012026121218_55.pdf" target="_blank">https://nsearchives.nseindia.com/corporate/AETHER_17012026121218_55.pdf</a></td><td class="col-action"><button class="analyze-btn" data-stock="AETHER">Analyze PDFs</button></td></tr><tr><td class="col-stock">ANANDRATHI</td><td class="col-source">EconomicTimes</td><td class="col-published">Tue, 13 Jan 2026 08:30:58 +0530</td><td class="col-description">Anand Rathi Wealth shares are in focus after a strong December quarter. The company reported a 30% rise in net profit to Rs 100 crore and a 25% jump in revenue to Rs 306 crore. Assets Under Management grew 30% to Rs 99,008 crore. The firm added new clients and saw healthy inflows, demonstrating steady growth.</td><td class="col-link"><a href="https://economictimes.indiatimes.com/markets/stocks/news/anand-rathi-shares-in-focus-as-q3-net-profit-jumps-30-to-rs-100-crore/articleshow/126495830.cms" target="_blank">https://economictimes.indiatimes.com/markets/stocks/news/anand-rathi-shares-in-focus-as-q3-net-profit-jumps-30-to-rs-100-crore/articleshow/126495830.cms</a></td><td class="col-action"><button class="analyze-btn" data-stock="ANANDRATHI">Analyze PDFs</button></td></tr><tr class="kw-row"><td class="col-stock">ANANDRATHI</td><td class="col-source">EconomicTimes</td><td class="col-published">Wed, 14 Jan 2026 09:53:05 +0530</td><td class="col-description" title="general: guidance, margin">Anand Rathi Wealth has been inchin closer to ₹1 lakh crore AUM as strong client inflows are matching market gains. CEO Rakesh Rawal explains all about growth drivers, <span class="kw">margin</span> discipline, ROE sustainability and also why it's <span class="kw">guidance</span> has remained unchanged despite hitting targets early, even as market volatility keeps caution high.</td><td class="col-link"><a href="https://economictimes.indiatimes.com/markets/expert-view/anand-rathi-wealth-nears-rs-1-lakh-crore-aum-as-inflows-and-markets-drive-growth-says-ceo-rakesh-rawal/articleshow/126517372.cms" target="_blank">https://economictimes.indiatimes.com/markets/expert-view/anand-rathi-wealth-nears-rs-1-lakh-crore-aum-as-inflows-and-markets-drive-growth-says-ceo-rakesh-rawal/articleshow/126517372.cms</a></td><td class="col-action"></td></tr><tr><td class="col-stock">ANANDRATHI</td><td class="col-source">EconomicTimes</td><td class="col-published">Fri, 16 Jan 2026 09:00:00 +0530</td><td class="col-description">Chirag Muni of Anand Rathi Wealth emphasizes goal-based investing and disciplined SIPs for building resilient portfolios in 2026. He advises a long-term asset allocation of 70-80% equity and 20% debt, advocating for annual SIP step-ups to accelerate wealth creation and avoid reacting to short-term market noise.</td><td class="col-link"><a href="https://economictimes.indiatimes.com/markets/expert-view/2026-investing-playbook-explained-asset-allocation-sips-and-retirement-planning/articleshow/126549443.cms" target="_blank">https://economictimes.indiatimes.com/markets/expert-view/2026-investing-playbook-explained-asset-allocation-sips-and-retirement-planning/articleshow/126549443.cms</a></td><td class="col-action"></td></tr><tr><td class="col-stock">ANANDRATHI</td><td class="col-source">NSE_Corporate_Filings_All</td><td class="col-published">15-Jan-2026 14:55:04</td><td class="col-description">Anand Rathi Wealth Limited has informed the Exchange about Copy of Newspaper Publication for Postal Ballot Notice and Remote E-Voting</td><td class="col-link"><input type="checkbox" class="pdf-checkbox" data-url="https://nsearchives.nseindia.com/corporate/ANANDRATHI_15012026145457_NewspaperadSD.pdf" data-stock="ANANDRATHI"><a href="https://nsearchives.nseindia.com/corporate/ANANDRATHI_15012026145457_NewspaperadSD.pdf" target="_blank">https://nsearchives.nseindia.com/corporate/ANANDRATHI_15012026145457_NewspaperadSD.pdf</a></td><td class="col-action"></td></tr><tr class="kw-row"><td class="col-stock">ANANDRATHI</td><td class="col-source">NSE_Corporate_Filings_All</td><td class="col-published">14-Jan-2026 18:35:17</td><td class="col-description" title="general: approval">Anand Rathi Wealth Limited has informed the Exchange regarding Notice of Postal Ballot dated January 12, 2026 for seeking <span class="kw">approval</span> of the members of the Company for Special Business matters through remote electronic voting only (Remote e-voting)</td><td class="col-link"><input type="checkbox" class="pdf-checkbox" data-url="https://nsearchives.nseindia.com/corporate/ANANDRATHI_14012026183507_NoticeofpostalballotSD.pdf" data-stock="ANANDRATHI"><a href="https://nsearchives.nseindia.com/corporate/ANANDRATHI_14012026183507_NoticeofpostalballotSD.pdf" target="_blank">https://nsearchives.nseindia.com/corporate/ANANDRATHI_14012026183507_NoticeofpostalballotSD.pdf</a></td><td class="col-action"></td></tr><tr><td class="col-stock">ANANDRATHI</td><td class="col-source">NSE_Corporate_Filings_All</td><td class="col-published">13-Jan-2026 16:43:30</td><td class="col-description">Anand Rathi Wealth Limited has informed the Exchange about Link of Recording for the Q3 &amp; 9M held on 13th January, 2026</td><td class="col-link"><input type="checkbox" class="pdf-checkbox" data-url="https://nsearchives.nseindia.com/corporate/ANANDRATHI_13012026164231_IntimationearningsaudiocallSD.pdf" data-stock="ANANDRATHI"><a href="https://nsearchives.nseindia.com/corporate/ANANDRATHI_13012026164231_IntimationearningsaudiocallSD.pdf" target="_blank">https://nsearchives.nseindia.com/corporate/ANANDRATHI_13012026164231_IntimationearningsaudiocallSD.pdf</a></td><td class="col-action"></td></tr><tr><td class="col-stock">ANANDRATHI</td><td class="col-source">NSE_Corporate_Filings_All</td><td class="col-published">13-Jan-2026 16:04:19</td><td class="col-description">Anand Rathi Wealth Limited has informed the Exchange about Copy of Newspaper Publication of Unaudited Financial Result for the third quarter and nine months ended 31st December, 2025</td><td class="col-link"><input type="checkbox" class="pdf-checkbox" data-url="https://nsearchives.nseindia.com/corporate/ANANDRATHI_13012026160412_NewspaperSD.pdf" data-stock="ANANDRATHI"><a href="https://nsearchives.nseindia.com/corporate/ANANDRATHI_13012026160412_NewspaperSD.pdf" target="_blank">https://nsearchives.nseindia.com/corporate/ANANDRATHI_13012026160412_NewspaperSD.pdf</a></td><td class="col-action"></td></tr><tr><td class="col-stock">ANANDRATHI</td><td class="col-source">NSE_Corporate_Filings_All</td><td class="col-published">12-Jan-2026 19:57:32</td><td class="col-description">Anand Rathi Wealth Limited has informed the Exchange about Investor Presentation</td><td class="col-link"><input type="checkbox" class="pdf-checkbox" data-url="https://nsearchives.nseindia.com/corporate/ANANDRATHI_12012026195722_InvestorSD.pdf" data-stock="ANANDRATHI"><a href="https://nsearchives.nseindia.com/corporate/ANANDRATHI_12012026195722_InvestorSD.pdf" target="_blank">https://nsearchives.nseindia.com/corporate/ANANDRATHI_12012026195722_InvestorSD.pdf</a></td><td class="col-action"></td></tr><tr><td class="col-stock">ANANDRATHI</td><td class="col-source">NSE_Corporate_Filings_All</td><td class="col-published">12-Jan-2026 19:47:42</td><td class="col-description">Anand Rathi Wealth Limited has informed the Exchange regarding change in Registered Office address of the company.</td><td class="col-link"><input type="checkbox" class="pdf-checkbox" data-url="https://nsearchives.nseindia.com/corporate/ANANDRATHI_12012026194730_OutcomeSD.pdf" data-stock="ANANDRATHI"><a href="https://nsearchives.nseindia.com/corporate/ANANDRATHI_12012026194730_OutcomeSD.pdf" target="_blank">https://nsearchives.nseindia.com/corporate/ANANDRATHI_12012026194730_OutcomeSD.pdf</a></td><td class="col-action"></td></tr><tr><td class="col-stock">ANANDRATHI</td><td class="col-source">NSE_Corporate_Filings_All</td><td class="col-published">12-Jan-2026 19:45:02</td><td class="col-description">Anand Rathi Wealth Limited has informed the Exchange regarding Change in Director(s) of the company.</td><td class="col-link"><input type="checkbox" class="pdf-checkbox" data-url="https://nsearchives.nseindia.com/corporate/ANANDRATHI_12012026194430_OutcomeSD.pdf" data-stock="ANANDRATHI"><a href="https://nsearchives.nseindia.com/corporate/ANANDRATHI_12012026194430_OutcomeSD.pdf" target="_blank">https://nsearchives.nseindia.com/corporate/ANANDRATHI_12012026194430_OutcomeSD.pdf</a></td><td class="col-action"></td></tr><tr><td class="col-stock">ANANDRATHI</td><td class="col-source">NSE_Corporate_Filings_All</td><td class="col-published">12-Jan-2026 19:20:05</td><td class="col-description">Anand Rathi Wealth Limited has informed the Exchange about Intimation of grant ESOPs</td><td class="col-link"><input type="checkbox" class="pdf-checkbox" data-url="https://nsearchives.nseindia.com/corporate/ANANDRATHI_12012026191928_OutcomeSD.pdf" data-stock="ANANDRATHI"><a href="https://nsearchives.nseindia.com/corporate/ANANDRATHI_12012026191928_OutcomeSD.pdf" target="_blank">https://nsearchives.nseindia.com/corporate/ANANDRATHI_12012026191928_OutcomeSD.pdf</a></td><td class="col-action"></td></tr><tr><td class="col-stock">ANANDRATHI</td><td class="col-source">NSE_Corporate_Filings_All</td><td class="col-published">12-Jan-2026 19:03:57</td><td class="col-description">Anand Rathi Wealth Limited has informed the Exchange regarding a press release dated January 12, 2026, titled "Anand Rathi Wealth Limited has informed the Exchange regarding a press release dated January 12, 2026".</td><td class="col-link"><input type="checkbox" class="pdf-checkbox" data-url="https://nsearchives.nseindia.com/corporate/ANANDRATHI_12012026190340_PressreleaseSD.pdf" data-stock="ANANDRATHI"><a href="https://nsearchives.nseindia.com/corporate/ANANDRATHI_12012026190340_PressreleaseSD.pdf" target="_blank">https://nsearchives.nseindia.com/corporate/ANANDRATHI_12012026190340_PressreleaseSD.pdf</a></td><td class="col-action"></td></tr><tr class="kw-row"><td class="col-stock">ANANDRATHI</td><td class="col-source">NSE_Corporate_Filings_All</td><td class="col-published">12-Jan-2026 19:01:21</td><td class="col-description" title="general: results; financial_results: financial results">Anand Rathi Wealth Limited has submitted to the Exchange, the <span class="kw">financial results</span> for the period ended December 31, 2025.</td><td class="col-link"><input type="checkbox" class="pdf-checkbox" data-url="https://nsearchives.nseindia.com/corporate/ANANDRATHI_12012026185857_OutcomeSD.pdf" data-stock="ANANDRATHI"><a href="https://nsearchives.nseindia.com/corporate/ANANDRATHI_12012026185857_OutcomeSD.pdf" target="_blank">https://nsearchives.nseindia.com/corporate/ANANDRATHI_12012026185857_OutcomeSD.pdf</a></td><td class="col-action"></td></tr><tr class="kw-row"><td class="col-stock">ANANDRATHI</td><td class="col-source">NSE_Corporate_Filings_All</td><td class="col-published">12-Jan-2026 18:44:35</td><td class="col-description" title="general: results; financial_results: financial results">Anand Rathi Wealth Limited has informed the Exchange regarding Outcome of the Board meeting held on Monday, January 12, 2026 as under: 1. Unaudited <span class="kw">Financial Results</span> (Standalone &amp; Consolidated) of the Company for the third quarter and nine months ended 31st December, 2025;2. Appointment of Mr. Adesh Kumar Gupta (DIN:00020403) as an Additional Director in the category of Non-Executive Independent Director;3. Appointment of Mr. Debasish Panda (DIN: 06479085) as an Additional Director in the category of Non-Executive Independent Director;4. Appointment of Ms. Deena Asit Mehta (DIN: 00168992) as an Additional Director in the category of Non-Executive Independent Director;5. Re-appointment of Mr. Rakesh Rawal (DIN: 02839168) as Whole-time Director and CEO of the Company for a period of 3 years from 1st April 2026 to 31st March, 2029;6. Shifting of Registered Office of the Company;7. The Nomination and Remuneration committee has granted 12,45,309 (Twelve Lakhs Forty Five Thousand Three Hundred and Nine) Employee Stock options to the eligible Employee(s)</td><td class="col-link"><input type="checkbox" class="pdf-checkbox" data-url="https://nsearchives.nseindia.com/corporate/ANANDRATHI_12012026183823_OutcomeSD.pdf" data-stock="ANANDRATHI"><a href="https://nsearchives.nseindia.com/corporate/ANANDRATHI_12012026183823_OutcomeSD.pdf" target="_blank">https://nsearchives.nseindia.com/corporate/ANANDRATHI_12012026183823_OutcomeSD.pdf</a></td><td class="col-action"></td></tr><tr><td class="col-stock">ANANDRATHI</td><td class="col-source">NSE_Corporate_Filings_All</td><td class="col-published">19-Jan-2026 13:02:00</td><td class="col-description">Anand Rathi Wealth Limited has informed the Exchange about Q3 &amp; 9M FY2026 Earnings Call Transcript dated 13th January, 2026</td><td class="col-link"><input type="checkbox" class="pdf-checkbox" data-url="https://nsearchives.nseindia.com/corporate/ANANDRATHI_19012026130123_IntimationSD.pdf" data-stock="ANANDRATHI"><a href="https://nsearchives.nseindia.com/corporate/ANANDRATHI_19012026130123_IntimationSD.pdf" target="_blank">https://nsearchives.nseindia.com/corporate/ANANDRATHI_19012026130123_IntimationSD.pdf</a></td><td class="col-action"></td></tr><tr><td class="col-stock">APLAPOLLO</td><td class="col-source">NSE_Corporate_Filings</td><td class="col-published">22-Jan-2026 23:10:04</td><td class="col-description">APL Apollo Tubes Limited has informed the Exchange about Link of Recording</td><td class="col-link"><input type="checkbox" class="pdf-checkbox" data-url="https://nsearchives.nseindia.com/corporate/APLAPOLLO_22012026230948_Con-Call_Recording_outcome.pdf" data-stock="APLAPOLLO"><a href="https://nsearchives.nseindia.com/corporate/APLAPOLLO_22012026230948_Con-Call_Recording_outcome.pdf" target="_blank">https://nsearchives.nseindia.com/corporate/APLAPOLLO_22012026230948_Con-Call_Recording_outcome.pdf</a></td><td class="col-action"><button class="analyze-btn" data-stock="APLAPOLLO">Analyze PDFs</button></td></tr><tr><td class="col-stock">APLAPOLLO</td><td class="col-source">NSE_Corporate_Filings_All</td><td class="col-published">15-Jan-2026 16:45:49</td><td class="col-description">APL Apollo Tubes Limited has informed the Exchange about Schedule of meet</td><td class="col-link"><input type="checkbox" class="pdf-checkbox" data-url="https://nsearchives.nseindia.com/corporate/APLAPOLLO_15012026164534_Con_call_intimation.pdf" data-stock="APLAPOLLO"><a href="https://nsearchives.nseindia.com/corporate/APLAPOLLO_15012026164534_Con_call_intimation.pdf" target="_blank">https://nsearchives.nseindia.com/corporate/APLAPOLLO_15012026164534_Con_call_intimation.pdf</a></td><td class="col-action"></td></tr><tr><td class="col-stock">APLAPOLLO</td><td class="col-source">NSE_Corporate_Filings_All</td><td class="col-published">22-Jan-2026 13:57:32</td><td class="col-description">APL Apollo Tubes Limited has informed the Exchange about Investor Presentation</td><td class="col-link"><input type="checkbox" class="pdf-checkbox" data-url="https://nsearchives.nseindia.com/corporate/APLAPOLLO_22012026135520_Press_Release.pdf" data-stock="APLAPOLLO"><a href="https://nsearchives.nseindia.com/corporate/APLAPOLLO_22012026135520_Press_Release.pdf" target="_blank">https://nsearchives.nseindia.com/corporate/APLAPOLLO_22012026135520_Press_Release.pdf</a></td><td class="col-action"></td></tr><tr><td class="col-stock">APLAPOLLO</td><td class="col-source">NSE_Corporate_Filings_All</td><td class="col-published">22-Jan-2026 13:57:32</td><td class="col-description">APL Apollo Tubes Limited has informed the Exchange regarding a press release dated January 22, 2026, titled "Q3FY26 Financial Performance".</td><td class="col-link"><input type="checkbox" class="pdf-checkbox" data-url="https://nsearchives.nseindia.com/corporate/APLAPOLLO_22012026135716_Press_Release.pdf" data-stock="APLAPOLLO"><a href="https://nsearchives.nseindia.com/corporate/APLAPOLLO_22012026135716_Press_Release.pdf" target="_blank">https://nsearchives.nseindia.com/corporate/APLAPOLLO_22012026135716_Press_Release.pdf</a></td><td class="col-action"></td></tr><tr class="kw-row"><td class="col-stock">APLAPOLLO</td><td class="col-source">NSE_Corporate_Filings_All</td><td class="col-published">22-Jan-2026 13:45:32</td><td class="col-description" title="general: results; financial_results: financial results">APL Apollo Tubes Limited has submitted to the Exchange, the <span class="kw">financial results</span> for the period ended December 31, 2025.</td><td class="col-link"><input type="checkbox" class="pdf-checkbox" data-url="https://nsearchives.nseindia.com/corporate/APLAPOLLO_22012026134310_Outcome_of_Board_Meeting.pdf" data-stock="APLAPOLLO"><a href="https://nsearchives.nseindia.com/corporate/APLAPOLLO_22012026134310_Outcome_of_Board_Meeting.pdf" target="_blank">https://nsearchives.nseindia.com/corporate/APLAPOLLO_22012026134310_Outcome_of_Board_Meeting.pdf</a></td><td class="col-action"></td></tr><tr><td class="col-stock">AUBANK</td><td class="col-source">NSE_Corporate_Filings_All</td><td class="col-published">16-Jan-2026 18:45:10</td><td class="col-description">AU Small Finance Bank Limited has informed the Exchange about General Updates</td><td class="col-link"><input type="checkbox" class="pdf-checkbox" data-url="https://nsearchives.nseindia.com/corporate/SUMIT1_16012026184411_Stat_Auditor_Conversion_of_firm_to_LLP.pdf" data-stock="AUBANK"><a href="https://nsearchives.nseindia.com/corporate/SUMIT1_16012026184411_Stat_Auditor_Conversion_of_firm_to_LLP.pdf" target="_blank">https://nsearchives.nseindia.com/corporate/SUMIT1_16012026184411_Stat_Auditor_Conversion_of_firm_to_LLP.pdf</a></td><td class="col-action"><button class="analyze-btn" data-stock="AUBANK">Analyze PDFs</button></td></tr><tr><td class="col-stock">AUBANK</td><td class="col-source">NSE_Corporate_Filings_All</td><td class="col-published">14-Jan-2026 13:13:50</td><td class="col-description">AU Small Finance Bank Limited has informed the Exchange regarding Allotment of 222762  Shares.</td><td class="col-link"><input type="checkbox" class="pdf-checkbox" data-url="https://nsearchives.nseindia.com/corporate/SUMIT1_14012026131011_ESOPAllotmentIntimation.pdf" data-stock="AUBANK"><a href="https://nsearchives.nseindia.com/corporate/SUMIT1_14012026131011_ESOPAllotmentIntimation.pdf" target="_blank">https://nsearchives.nseindia.com/corporate/SUMIT1_14012026131011_ESOPAllotmentIntimation.pdf</a></td><td class="col-action"></td></tr><tr><td class="col-stock">AUBANK</td><td class="col-source">NSE_Corporate_Filings_All</td><td class="col-published">22-Jan-2026 16:48:44</td><td class="col-description">AU Small Finance Bank Limited has informed the Exchange about Transcript</td><td class="col-link"><input type="checkbox" class="pdf-checkbox" data-url="https://nsearchives.nseindia.com/corporate/SUMIT1_22012026164733_SE_submission_Transcript_of_investor_call.pdf" data-stock="AUBANK"><a href="https://nsearchives.nseindia.com/corporate/SUMIT1_22012026164733_SE_submission_Transcript_of_investor_call.pdf" target="_blank">https://nsearchives.nseindia.com/corporate/SUMIT1_22012026164733_SE_submission_Transcript_of_investor_call.pdf</a></td><td class="col-action"></td></tr><tr><td class="col-stock">AUBANK</td><td class="col-source">NSE_Corporate_Filings_All</td><td class="col-published">21-Jan-2026 20:11:09</td><td class="col-description">AU Small Finance Bank Limited has informed the Exchange about Copy of Newspaper Publication</td><td class="col-link"><input type="checkbox" class="pdf-checkbox" data-url="https://nsearchives.nseindia.com/corporate/SUMIT1_21012026201056_Newspaper_Intimation_Q3_FR.pdf" data-stock="AUBANK"><a href="https://nsearchives.nseindia.com/corporate/SUMIT1_21012026201056_Newspaper_Intimation_Q3_FR.pdf" target="_blank">https://nsearchives.nseindia.com/corporate/SUMIT1_21012026201056_Newspaper_Intimation_Q3_FR.pdf</a></td><td class="col-action"></td></tr><tr><td class="col-stock">AUBANK</td><td class="col-source">NSE_Corporate_Filings_All</td><td class="col-published">21-Jan-2026 19:45:56</td><td class="col-description">AU Small Finance Bank Limited has informed the Exchange about Schedule of meet</td><td class="col-link"><input type="checkbox" class="pdf-checkbox" data-url="https://nsearchives.nseindia.com/corporate/SUMIT1_21012026194328_Investor_Meet_Intimation_20260121.pdf" data-stock="AUBANK"><a href="https://nsearchives.nseindia.com/corporate/SUMIT1_21012026194328_Investor_Meet_Intimation_20260121.pdf" target="_blank">https://nsearchives.nseindia.com/corporate/SUMIT1_21012026194328_Investor_Meet_Intimation_20260121.pdf</a></td><td class="col-action"></td></tr><tr><td class="col-stock">AUBANK</td><td class="col-source">NSE_Corporate_Filings_All</td><td class="col-published">20-Jan-2026 22:58:50</td><td class="col-description">AU Small Finance Bank Limited has informed the Exchange about Link of Recording</td><td class="col-link"><input type="checkbox" class="pdf-checkbox" data-url="https://nsearchives.nseindia.com/corporate/AUBANK_20012026225612_Earning_Recording_Disclosure.pdf" data-stock="AUBANK"><a href="https://nsearchives.nseindia.com/corporate/AUBANK_20012026225612_Earning_Recording_Disclosure.pdf" target="_blank">https://nsearchives.nseindia.com/corporate/AUBANK_20012026225612_Earning_Recording_Disclosure.pdf</a></td><td class="col-action"></td></tr><tr class="kw-row"><td class="col-stock">AUBANK</td><td class="col-source">NSE_Corporate_Filings_All</td><td class="col-published">20-Jan-2026 18:05:32</td><td class="col-description" title="general: results; financial_results: financial results">In continuation to our letter dated January 07, 2026, intimating about the Board meeting to be held on January 20, 2026, it is hereby informed that the Board of Directors of the Bank ( the Board ) at its Meeting held today has inter-alia, considered and approved the Unaudited <span class="kw">Financial Results</span> of the Bank for the Quarter and Nine months ended on December 31, 2025 along with other agenda items as detailed in the attached revised outcome.</td><td class="col-link"><input type="checkbox" class="pdf-checkbox" data-url="https://nsearchives.nseindia.com/corporate/SUMIT1_20012026175838_BM_Outcome_updated.pdf" data-stock="AUBANK"><a href="https://nsearchives.nseindia.com/corporate/SUMIT1_20012026175838_BM_Outcome_updated.pdf" target="_blank">https://nsearchives.nseindia.com/corporate/SUMIT1_20012026175838_BM_Outcome_updated.pdf</a></td><td class="col-action"></td></tr><tr><td class="col-stock">AUBANK</td><td class="col-source">NSE_Corporate_Filings_All</td><td class="col-published">20-Jan-2026 17:36:39</td><td class="col-description">AU Small Finance Bank Limited has informed the Exchange about Investor Presentation</td><td class="col-link"><input type="checkbox" class="pdf-checkbox" data-url="https://nsearchives.nseindia.com/corporate/SUMIT1_20012026173540_SE_Filing_Investor_ppt_F.pdf" data-stock="AUBANK"><a href="https://nsearchives.nseindia.com/corporate/SUMIT1_20012026173540_SE_Filing_Investor_ppt_F.pdf" target="_blank">https://nsearchives.nseindia.com/corporate/SUMIT1_20012026173540_SE_Filing_Investor_ppt_F.pdf</a></td><td class="col-action"></td></tr><tr class="kw-row"><td class="col-stock">AUBANK</td><td class="col-source">NSE_Corporate_Filings_All</td><td class="col-published">20-Jan-2026 17:22:56</td><td class="col-description" title="general: results; financial_results: financial results">AU Small Finance Bank Limited has informed the Exchange regarding a press release dated January 20, 2026, titled "Press Release on Unaudited <span class="kw">Financial Results</span> of AU Small Finance Bank Limited for the Quarter and Nine months ended on December 31, 2025".</td><td class="col-link"><input type="checkbox" class="pdf-checkbox" data-url="https://nsearchives.nseindia.com/corporate/SUMIT1_20012026172126_SE_Filing_Press_Release_Disclosure.pdf" data-stock="AUBANK"><a href="https://nsearchives.nseindia.com/corporate/SUMIT1_20012026172126_SE_Filing_Press_Release_Disclosure.pdf" target="_blank">https://nsearchives.nseindia.com/corporate/SUMIT1_20012026172126_SE_Filing_Press_Release_Disclosure.pdf</a></td><td class="col-action"></td></tr><tr><td class="col-stock">AUBANK</td><td class="col-source">NSE_Corporate_Filings_All</td><td class="col-published">20-Jan-2026 16:57:47</td><td class="col-description">AU Small Finance Bank Limited has informed the Exchange about Investor Presentation</td><td class="col-link"><input type="checkbox" class="pdf-checkbox" data-url="https://nsearchives.nseindia.com/corporate/SUMIT1_20012026165726_SE_Filing_Investor_ppt.pdf" data-stock="AUBANK"><a href="https://nsearchives.nseindia.com/corporate/SUMIT1_20012026165726_SE_Filing_Investor_ppt.pdf" target="_blank">https://nsearchives.nseindia.com/corporate/SUMIT1_20012026165726_SE_Filing_Investor_ppt.pdf</a></td><td class="col-action"></td></tr><tr class="kw-row"><td class="col-stock">AUBANK</td><td class="col-source">NSE_Corporate_Filings_All</td><td class="col-published">20-Jan-2026 16:53:47</td><td class="col-description" title="general: results; financial_results: financial results">In continuation to our letter dated January 07, 2026, intimating about the Board meeting to be held on January 20, 2026, it is hereby informed that the Board of Directors of the Bank ( the Board ) at its Meeting held today has inter-alia, considered and approved the Unaudited <span class="kw">Financial Results</span> of the Bank for the Quarter and Nine months ended on December 31, 2025 along with other agenda items as detailed in the attached outcome.</td><td class="col-link"><input type="checkbox" class="pdf-checkbox" data-url="https://nsearchives.nseindia.com/corporate/SUMIT1_20012026165058_SE_filing_BM_Outcome_F.pdf" data-stock="AUBANK"><a href="https://nsearchives.nseindia.com/corporate/SUMIT1_20012026165058_SE_filing_BM_Outcome_F.pdf" target="_blank">https://nsearchives.nseindia.com/corporate/SUMIT1_20012026165058_SE_filing_BM_Outcome_F.pdf</a></td><td class="col-action"></td></tr><tr class="kw-row"><td class="col-stock">AUBANK</td><td class="col-source">NSE_Corporate_Filings_All</td><td class="col-published">20-Jan-2026 16:53:47</td><td class="col-description" title="general: results; financial_results: financial results">In continuation to our letter dated January 07, 2026, intimating about the Board meeting to be held on January 20, 2026, it is hereby informed that the Board of Directors of the Bank ( the Board ) at its Meeting held today has inter-alia, considered and approved the Unaudited <span class="kw">Financial Results</span> of the Bank for the Quarter and Nine months ended on December 31, 2025 along with other agenda items as detailed in the attached outcome.</td><td class="col-link"><input type="checkbox" class="pdf-checkbox" data-url="https://nsearchives.nseindia.com/corporate/SUMIT1_20012026165029_SE_filing_BM_Outcome_F.pdf" data-stock="AUBANK"><a href="https://nsearchives.nseindia.com/corporate/SUMIT1_20012026165029_SE_filing_BM_Outcome_F.pdf" target="_blank">https://nsearchives.nseindia.com/corporate/SUMIT1_20012026165029_SE_filing_BM_Outcome_F.pdf</a></td><td class="col-action"></td></tr><tr><td class="col-stock">BANKBARODA</td><td class="col-source">BQPrime</td><td class="col-published">2026-01-12T01:25:35.782Z</td><td class="col-description">Dmart, TCS, HCLTech, Vedanta Bank Of Baroda, Shriram Finance, Lemon Tree And Power Finance Corp are some of the stocks to watch today.</td><td class="col-link"><a href="https://www.ndtvprofit.com/markets/stock-market-live-updates-nse-nifty-50-bse-sensex-nifty-bank-gift-nifty-trading-levels-january-12-2026-dmart-tcs-hcltech-vedanta-ril" target="_blank">https://www.ndtvprofit.com/markets/stock-market-live-updates-nse-nifty-50-bse-sensex-nifty-bank-gift-nifty-trading-levels-january-12-2026-dmart-tcs-hcltech-vedanta-ril</a></td><td class="col-action"><button class="analyze-btn" data-stock="BANKBARODA">Analyze PDFs</button></td></tr><tr><td class="col-stock">BANKBARODA</td><td class="col-source">NSE_Corporate_Filings_All</td><td class="col-published">20-Jan-2026 17:57:17</td><td class="col-description">Bank Of Baroda has informed the Exchange about Re-designation of Key Managerial Personnel</td><td class="col-link"><input type="checkbox" class="pdf-checkbox" data-url="https://nsearchives.nseindia.com/corporate/BANKBARODA_20012026175709_SEKMP.pdf" data-stock="BANKBARODA"><a href="https://nsearchives.nseindia.com/corporate/BANKBARODA_20012026175709_SEKMP.pdf" target="_blank">https://nsearchives.nseindia.com/corporate/BANKBARODA_20012026175709_SEKMP.pdf</a></td><td class="col-action"></td></tr><tr><td class="col-stock">BANKBARODA</td><td class="col-source">NSE_Corporate_Filings_All</td><td class="col-published">19-Jan-2026 18:59:08</td><td class="col-description">Bank Of Baroda has informed the Exchange regarding 'Corrigendum to intimation of Board Meeting- Trading Window Closure Date'.</td><td class="col-link"><input type="checkbox" class="pdf-checkbox" data-url="https://nsearchives.nseindia.com/corporate/BANKBARODA_19012026185835_SEBMREVISED.pdf" data-stock="BANKBARODA"><a href="https://nsearchives.nseindia.com/corporate/BANKBARODA_19012026185835_SEBMREVISED.pdf" target="_blank">https://nsearchives.nseindia.com/corporate/BANKBARODA_19012026185835_SEBMREVISED.pdf</a></td><td class="col-action"></td></tr><tr><td class="col-stock">DCBBANK</td><td class="col-source">NSE_Corporate_Filings_All</td><td class="col-published">21-Jan-2026 21:30:25</td><td class="col-description">DCB Bank Limited has informed the Exchange about Credit Rating</td><td class="col-link"><input type="checkbox" class="pdf-checkbox" data-url="https://nsearchives.nseindia.com/corporate/ujwal727_21012026213005_BSENSECRISILCreditRatingsJanuary2026.pdf" data-stock="DCBBANK"><a href="https://nsearchives.nseindia.com/corporate/ujwal727_21012026213005_BSENSECRISILCreditRatingsJanuary2026.pdf" target="_blank">https://nsearchives.nseindia.com/corporate/ujwal727_21012026213005_BSENSECRISILCreditRatingsJanuary2026.pdf</a></td><td class="col-action"><button class="analyze-btn" data-stock="DCBBANK">Analyze PDFs</button></td></tr><tr><td class="col-stock">DCBBANK</td><td class="col-source">NSE_Corporate_Filings_All</td><td class="col-published">19-Jan-2026 17:33:45</td><td class="col-description">DCB Bank Limited has informed the Exchange about Schedule of meet</td><td class="col-link"><input type="checkbox" class="pdf-checkbox" data-url="https://nsearchives.nseindia.com/corporate/ujwal727_19012026173249_BSENSEIntimationOfAnalystCallOn23012026.pdf" data-stock="DCBBANK"><a href="https://nsearchives.nseindia.com/corporate/ujwal727_19012026173249_BSENSEIntimationOfAnalystCallOn23012026.pdf" target="_blank">https://nsearchives.nseindia.com/corporate/ujwal727_19012026173249_BSENSEIntimationOfAnalystCallOn23012026.pdf</a></td><td class="col-action"></td></tr><tr><td class="col-stock">EMCURE</td><td class="col-source">NSE_Corporate_Filings_All</td><td class="col-published">22-Jan-2026 16:20:09</td><td class="col-description">Emcure Pharmaceuticals Limited has informed the Exchange about Schedule of meet</td><td class="col-link"><input type="checkbox" class="pdf-checkbox" data-url="https://nsearchives.nseindia.com/corporate/EMCURE_22012026161938_IntimationEarningsCallQ3FY26.pdf" data-stock="EMCURE"><a href="https://nsearchives.nseindia.com/corporate/EMCURE_22012026161938_IntimationEarningsCallQ3FY26.pdf" target="_blank">https://nsearchives.nseindia.com/corporate/EMCURE_22012026161938_IntimationEarningsCallQ3FY26.pdf</a></td><td class="col-action"><button class="analyze-btn" data-stock="EMCURE">Analyze PDFs</button></td></tr><tr><td class="col-stock">FORCEMOT</td><td class="col-source">NSE_Corporate_Filings_All</td><td class="col-published">14-Jan-2026 12:42:40</td><td class="col-description">FORCE MOTORS LTD has informed the Exchange regarding 'Certificate under Reg 74 (5) of SEBI (DP) Regulations 2018 for quarter ended on 31/12/2025 '.</td><td class="col-link"><input type="checkbox" class="pdf-checkbox" data-url="https://nsearchives.nseindia.com/corporate/FORCEMOTORS_14012026124225_026LtrBSENSE74_5_31122025SIGNED.pdf" data-stock="FORCEMOT"><a href="https://nsearchives.nseindia.com/corporate/FORCEMOTORS_14012026124225_026LtrBSENSE74_5_31122025SIGNED.pdf" target="_blank">https://nsearchives.nseindia.com/corporate/FORCEMOTORS_14012026124225_026LtrBSENSE74_5_31122025SIGNED.pdf</a></td><td class="col-action"><button class="analyze-btn" data-stock="FORCEMOT">Analyze PDFs</button></td></tr><tr class="kw-row"><td class="col-stock">INDIANB</td><td class="col-source">NSE_Corporate_Filings_All</td><td class="col-published">17-Jan-2026 18:20:27</td><td class="col-description">The South Indian Bank Limited has informed the Exchange regarding 'Change in <span class="kw">Margin</span>al Cost of Funds Based Lending Rates (MCLR) of the Bank'.</td><td class="col-link"><input type="checkbox" class="pdf-checkbox" data-url="https://nsearchives.nseindia.com/corporate/SOUTHBANK_17012026181823_SD_STT_MCLRCHANGE_JAN2026.pdf" data-stock="INDIANB"><a href="https://nsearchives.nseindia.com/corporate/SOUTHBANK_17012026181823_SD_STT_MCLRCHANGE_JAN2026.pdf" target="_blank">https://nsearchives.nseindia.com/corporate/SOUTHBANK_17012026181823_SD_STT_MCLRCHANGE_JAN2026.pdf</a></td><td class="col-action"><button class="analyze-btn" data-stock="INDIANB">Analyze PDFs</button></td></tr><tr><td class="col-stock">INDIANB</td><td class="col-source">NSE_Corporate_Filings_All</td><td class="col-published">16-Jan-2026 19:25:29</td><td class="col-description">The South Indian Bank Limited has informed the Exchange about Link of Recording</td><td class="col-link"><input type="checkbox" class="pdf-checkbox" data-url="https://nsearchives.nseindia.com/corporate/SOUTHBANK_16012026192029_SD_STT_QUARTERLY_EARNING_CALL_AUDIO_RECORDING_Q3.pdf" data-stock="INDIANB"><a href="https://nsearchives.nseindia.com/corporate/SOUTHBANK_16012026192029_SD_STT_QUARTERLY_EARNING_CALL_AUDIO_RECORDING_Q3.pdf" target="_blank">https://nsearchives.nseindia.com/corporate/SOUTHBANK_16012026192029_SD_STT_QUARTERLY_EARNING_CALL_AUDIO_RECORDING_Q3.pdf</a></td><td class="col-action"></td></tr><tr><td class="col-stock">INDIANB</td><td class="col-source">NSE_Corporate_Filings_All</td><td class="col-published">16-Jan-2026 13:07:52</td><td class="col-description">The South Indian Bank Limited has informed the Exchange about Copy of Newspaper Publication</td><td class="col-link"><input type="checkbox" class="pdf-checkbox" data-url="https://nsearchives.nseindia.com/corporate/SOUTHBANK_16012026130721_SD_STT_NEWSPAPER_PUBLICATION_Q3.pdf" data-stock="INDIANB"><a href="https://nsearchives.nseindia.com/corporate/SOUTHBANK_16012026130721_SD_STT_NEWSPAPER_PUBLICATION_Q3.pdf" target="_blank">https://nsearchives.nseindia.com/corporate/SOUTHBANK_16012026130721_SD_STT_NEWSPAPER_PUBLICATION_Q3.pdf</a></td><td class="col-action"></td></tr><tr><td class="col-stock">INDIANB</td><td class="col-source">NSE_Corporate_Filings_All</td><td class="col-published">15-Jan-2026 19:25:35</td><td class="col-description">The South Indian Bank Limited has informed the Exchange about Intimation under Regulation 30 of the SEBI (Listing Obligations and Disclosure Requirements), Regulations, 2015</td><td class="col-link"><input type="checkbox" class="pdf-checkbox" data-url="https://nsearchives.nseindia.com/corporate/SOUTHBANK_15012026192443_SD_STT_REG_30_INTIMATION_OF_ESOS_GRANT_ED.pdf" data-stock="INDIANB"><a href="https://nsearchives.nseindia.com/corporate/SOUTHBANK_15012026192443_SD_STT_REG_30_INTIMATION_OF_ESOS_GRANT_ED.pdf" target="_blank">https://nsearchives.nseindia.com/corporate/SOUTHBANK_15012026192443_SD_STT_REG_30_INTIMATION_OF_ESOS_GRANT_ED.pdf</a></td><td class="col-action"></td></tr><tr><td class="col-stock">INDIANB</td><td class="col-source">NSE_Corporate_Filings_All</td><td class="col-published">15-Jan-2026 18:07:02</td><td class="col-description">The South Indian Bank Limited has informed the Exchange about Investor Presentation</td><td class="col-link"><input type="checkbox" class="pdf-checkbox" data-url="https://nsearchives.nseindia.com/corporate/SOUTHBANK_15012026180651_SD_STT_INVESTORS_PRESENTATION_Q3.pdf" data-stock="INDIANB"><a href="https://nsearchives.nseindia.com/corporate/SOUTHBANK_15012026180651_SD_STT_INVESTORS_PRESENTATION_Q3.pdf" target="_blank">https://nsearchives.nseindia.com/corporate/SOUTHBANK_15012026180651_SD_STT_INVESTORS_PRESENTATION_Q3.pdf</a></td><td class="col-action"></td></tr><tr><td class="col-stock">INDIANB</td><td class="col-source">NSE_Corporate_Filings_All</td><td class="col-published">15-Jan-2026 17:32:26</td><td class="col-description">The South Indian Bank Limited has informed the Exchange regarding a revised press release dated January 15, 2026, titled "South Indian Bank Scripts Another Record Quarter with Rs. 374 Cr. Net Profit".</td><td class="col-link"><input type="checkbox" class="pdf-checkbox" data-url="https://nsearchives.nseindia.com/corporate/SOUTHBANK_15012026172844_SD_STT_PRESSRELEASEREVISED_DEC2025.pdf" data-stock="INDIANB"><a href="https://nsearchives.nseindia.com/corporate/SOUTHBANK_15012026172844_SD_STT_PRESSRELEASEREVISED_DEC2025.pdf" target="_blank">https://nsearchives.nseindia.com/corporate/SOUTHBANK_15012026172844_SD_STT_PRESSRELEASEREVISED_DEC2025.pdf</a></td><td class="col-action"></td></tr><tr><td class="col-stock">INDIANB</td><td class="col-source">NSE_Corporate_Filings_All</td><td class="col-published">15-Jan-2026 15:37:50</td><td class="col-description">The South Indian Bank Limited has informed the Exchange regarding a press release dated January 15, 2026, titled "South Indian Bank Scripts Another Record Quarter with Rs. 374 Crores Net Profit".</td><td class="col-link"><input type="checkbox" class="pdf-checkbox" data-url="https://nsearchives.nseindia.com/corporate/SOUTHBANK_15012026153614_SD_STT_PRESS_RELEASE_Q3.pdf" data-stock="INDIANB"><a href="https://nsearchives.nseindia.com/corporate/SOUTHBANK_15012026153614_SD_STT_PRESS_RELEASE_Q3.pdf" target="_blank">https://nsearchives.nseindia.com/corporate/SOUTHBANK_15012026153614_SD_STT_PRESS_RELEASE_Q3.pdf</a></td><td class="col-action"></td></tr><tr><td class="col-stock">INDIANB</td><td class="col-source">NSE_Corporate_Filings_All</td><td class="col-published">15-Jan-2026 13:53:06</td><td class="col-description">The South Indian Bank Limited has informed the Exchange regarding 'Disclosure under Regulation 54 of SEBI (LODR) Regulations, 2015.'.</td><td class="col-link"><input type="checkbox" class="pdf-checkbox" data-url="https://nsearchives.nseindia.com/corporate/SOUTHBANK_15012026135149_SD_STT_REGULATION_54.pdf" data-stock="INDIANB"><a href="https://nsearchives.nseindia.com/corporate/SOUTHBANK_15012026135149_SD_STT_REGULATION_54.pdf" target="_blank">https://nsearchives.nseindia.com/corporate/SOUTHBANK_15012026135149_SD_STT_REGULATION_54.pdf</a></td><td class="col-action"></td></tr><tr class="kw-row"><td class="col-stock">INDIANB</td><td class="col-source">NSE_Corporate_Filings_All</td><td class="col-published">15-Jan-2026 13:30:05</td><td class="col-description" title="general: results; financial_results: financial results">The South Indian Bank Limited has submitted to the Exchange, Outcome of Board Meeting/Submission of Unaudited <span class="kw">Financial Results</span> for the quarter and nine months ended 31st December, 2025.</td><td class="col-link"><input type="checkbox" class="pdf-checkbox" data-url="https://nsearchives.nseindia.com/corporate/SOUTHBANK_15012026132734_SD_STT_OUTCOME_BOARD_MEETING_RESULTS_Q3.pdf" data-stock="INDIANB"><a href="https://nsearchives.nseindia.com/corporate/SOUTHBANK_15012026132734_SD_STT_OUTCOME_BOARD_MEETING_RESULTS_Q3.pdf" target="_blank">https://nsearchives.nseindia.com/corporate/SOUTHBANK_15012026132734_SD_STT_OUTCOME_BOARD_MEETING_<span class="kw">RESULTS</span>_Q3.pdf</a></td><td class="col-action"></td></tr><tr class="kw-row"><td class="col-stock">INDIANB</td><td class="col-source">NSE_Corporate_Filings_All</td><td class="col-published">14-Jan-2026 19:07:22</td><td class="col-description" title="general: results; financial_results: financial results">Indian Bank has informed the Exchange about Post Earnings Call / Conference Call with Investors / Analysts: Unaudited (Reviewed) <span class="kw">Financial Results</span> (Standalone &amp; Consolidated) of the Bank for the Third Quarter and Nine Months period of FY 2025-26 ended on December 31, 2025</td><td class="col-link"><input type="checkbox" class="pdf-checkbox" data-url="https://nsearchives.nseindia.com/corporate/INDIANB_14012026190421_SE_Analyst_MEet_Intimation14012026.pdf" data-stock="INDIANB"><a href="https://nsearchives.nseindia.com/corporate/INDIANB_14012026190421_SE_Analyst_MEet_Intimation14012026.pdf" target="_blank">https://nsearchives.nseindia.com/corporate/INDIANB_14012026190421_SE_Analyst_MEet_Intimation14012026.pdf</a></td><td class="col-action"></td></tr><tr><td class="col-stock">INDIANB</td><td class="col-source">NSE_Corporate_Filings_All</td><td class="col-published">12-Jan-2026 18:06:44</td><td class="col-description">The South Indian Bank Limited has informed the Exchange about Schedule of Conference call for Investors and Analysts</td><td class="col-link"><input type="checkbox" class="pdf-checkbox" data-url="https://nsearchives.nseindia.com/corporate/SOUTHBANK_12012026180600_SD_STT_INTIMATION_OF_CONFERENCE_CALL_Q3.pdf" data-stock="INDIANB"><a href="https://nsearchives.nseindia.com/corporate/SOUTHBANK_12012026180600_SD_STT_INTIMATION_OF_CONFERENCE_CALL_Q3.pdf" target="_blank">https://nsearchives.nseindia.com/corporate/SOUTHBANK_12012026180600_SD_STT_INTIMATION_OF_CONFERENCE_CALL_Q3.pdf</a></td><td class="col-action"></td></tr><tr><td class="col-stock">INDIANB</td><td class="col-source">NSE_Corporate_Filings_All</td><td class="col-published">22-Jan-2026 20:37:38</td><td class="col-description">Indian Bank has informed the Exchange about Link of Recording</td><td class="col-link"><input type="checkbox" class="pdf-checkbox" data-url="https://nsearchives.nseindia.com/corporate/INDIANB_22012026203618_SE_Audio_Recording22012026.pdf" data-stock="INDIANB"><a href="https://nsearchives.nseindia.com/corporate/INDIANB_22012026203618_SE_Audio_Recording22012026.pdf" target="_blank">https://nsearchives.nseindia.com/corporate/INDIANB_22012026203618_SE_Audio_Recording22012026.pdf</a></td><td class="col-action"></td></tr><tr><td class="col-stock">INDIANB</td><td class="col-source">NSE_Corporate_Filings_All</td><td class="col-published">22-Jan-2026 14:45:23</td><td class="col-description">Indian Bank has informed the Exchange about Investor Presentation</td><td class="col-link"><input type="checkbox" class="pdf-checkbox" data-url="https://nsearchives.nseindia.com/corporate/INDIANB_22012026144500_SE_Presentation22012026.pdf" data-stock="INDIANB"><a href="https://nsearchives.nseindia.com/corporate/INDIANB_22012026144500_SE_Presentation22012026.pdf" target="_blank">https://nsearchives.nseindia.com/corporate/INDIANB_22012026144500_SE_Presentation22012026.pdf</a></td><td class="col-action"></td></tr><tr class="kw-row"><td class="col-stock">INDIANB</td><td class="col-source">NSE_Corporate_Filings_All</td><td class="col-published">22-Jan-2026 14:01:15</td><td class="col-description" title="general: results; financial_results: financial results">Indian Bank has informed the Exchange regarding a press release dated January 22, 2026, titled "Press release on Unaudited (Reviewed) <span class="kw">Financial Results</span> of the Bank for the Third Quarter (Q3) and Nine Months period of FY 2025-26 ended on December 31, 2025 ".</td><td class="col-link"><input type="checkbox" class="pdf-checkbox" data-url="https://nsearchives.nseindia.com/corporate/INDIANB_22012026140032_SE_Press_Release_22012026.pdf" data-stock="INDIANB"><a href="https://nsearchives.nseindia.com/corporate/INDIANB_22012026140032_SE_Press_Release_22012026.pdf" target="_blank">https://nsearchives.nseindia.com/corporate/INDIANB_22012026140032_SE_Press_Release_22012026.pdf</a></td><td class="col-action"></td></tr><tr class="kw-row"><td class="col-stock">INDIANB</td><td class="col-source">NSE_Corporate_Filings_All</td><td class="col-published">22-Jan-2026 13:29:45</td><td class="col-description" title="general: results; financial_results: financial results">Indian Bank has submitted to the Exchange, the <span class="kw">financial results</span> for the Third Quarter and Nine Months period of FY 2025-26 ended on December 31, 2025.</td><td class="col-link"><input type="checkbox" class="pdf-checkbox" data-url="https://nsearchives.nseindia.com/corporate/INDIANB_22012026132733_SE_Q3FY26_Result.pdf" data-stock="INDIANB"><a href="https://nsearchives.nseindia.com/corporate/INDIANB_22012026132733_SE_Q3FY26_Result.pdf" target="_blank">https://nsearchives.nseindia.com/corporate/INDIANB_22012026132733_SE_Q3FY26_Result.pdf</a></td><td class="col-action"></td></tr><tr><td class="col-stock">INDIANB</td><td class="col-source">NSE_Corporate_Filings_All</td><td class="col-published">20-Jan-2026 19:01:36</td><td class="col-description">The South Indian Bank Limited has informed the Exchange about the Conference call for Investors/Analysts  Transcript of the Conference Call</td><td class="col-link"><input type="checkbox" class="pdf-checkbox" data-url="https://nsearchives.nseindia.com/corporate/SOUTHBANK_20012026190019_SD_STT_INVESTORCALLTRANSCRIPT_JAN2026.pdf" data-stock="INDIANB"><a href="https://nsearchives.nseindia.com/corporate/SOUTHBANK_20012026190019_SD_STT_INVESTORCALLTRANSCRIPT_JAN2026.pdf" target="_blank">https://nsearchives.nseindia.com/corporate/SOUTHBANK_20012026190019_SD_STT_INVESTORCALLTRANSCRIPT_JAN2026.pdf</a></td><td class="col-action"></td></tr><tr class="kw-row"><td class="col-stock">INDIANB, SAIL</td><td class="col-source">EconomicTimes</td><td class="col-published">Thu, 22 Jan 2026 18:27:50 +0530</td><td class="col-description">Sensex surged 398 points to 82,307 as four BSE PSU stocks hit fresh 52-week highs. SAIL, Bank of India, Indian Bank and SBI showed strong monthly gains, <span class="kw">signalling</span> bullish momentum and potential upside amid broader market strength for investors today.</td><td class="col-link"><a href="https://economictimes.indiatimes.com/markets/stocks/news/sail-bank-of-india-among-4-psu-stocks-that-hit-52-week-highs-amp-rallied-up-to-17-in-a-month/slideshow/127156036.cms" target="_blank">https://economictimes.indiatimes.com/markets/stocks/news/sail-bank-of-india-among-4-psu-stocks-that-hit-52-week-highs-amp-rallied-up-to-17-in-a-month/slideshow/127156036.cms</a></td><td class="col-action"><button class="analyze-btn" data-stock="INDIANB, SAIL">Analyze PDFs</button></td></tr><tr><td class="col-stock">JKTYRE</td><td class="col-source">NSE_Corporate_Filings_All</td><td class="col-published">13-Jan-2026 18:20:46</td><td class="col-description">JK Tyre &amp; Industries Limited has informed the Exchange about Credit Rating</td><td class="col-link"><input type="checkbox" class="pdf-checkbox" data-url="https://nsearchives.nseindia.com/corporate/JKTYRE_13012026181950_CreditRating2026.pdf" data-stock="JKTYRE"><a href="https://nsearchives.nseindia.com/corporate/JKTYRE_13012026181950_CreditRating2026.pdf" target="_blank">https://nsearchives.nseindia.com/corporate/JKTYRE_13012026181950_CreditRating2026.pdf</a></td><td class="col-action"><button class="analyze-btn" data-stock="JKTYRE">Analyze PDFs</button></td></tr><tr><td class="col-stock">MUTHOOTFIN</td><td class="col-source">Investor_Complaints</td><td class="col-published">22-Jan-2026 15:25:59</td><td class="col-description">FOR QUARTER ENDING : 31-DEC-25</td><td class="col-link"><a href="https://nsearchives.nseindia.com/corporate/xbrl/INVESTOR_DEBT_1606985_21012026033851_WEB.xml" target="_blank">https://nsearchives.nseindia.com/corporate/xbrl/INVESTOR_DEBT_1606985_21012026033851_WEB.xml</a></td><td class="col-action"><button class="analyze-btn" data-stock="MUTHOOTFIN">Analyze PDFs</button></td></tr><tr><td class="col-stock">SAIL</td><td class="col-source">EconomicTimes</td><td class="col-published">Mon, 12 Jan 2026 08:16:30 +0530</td><td class="col-description"></td><td class="col-link"><a href="https://economictimes.indiatimes.com/markets/stocks/stock-liveblog/ril-share-price-live-12-jan-2026/liveblog/126474185.cms" target="_blank">https://economictimes.indiatimes.com/markets/stocks/stock-liveblog/ril-share-price-live-12-jan-2026/liveblog/126474185.cms</a></td><td class="col-action"><button class="analyze-btn" data-stock="SAIL">Analyze PDFs</button></td></tr><tr><td class="col-stock">SAIL</td><td class="col-source">NSE_Corporate_Filings_All</td><td class="col-published">18-Jan-2026 11:44:43</td><td class="col-description">Seamec Limited has informed the Exchange about General Updates on SEAMEC PALADIN Sailed for undertaking Drydocking</td><td class="col-link"><input type="checkbox" class="pdf-checkbox" data-url="https://nsearchives.nseindia.com/corporate/SEAMECLTD_18012026114427_BSENSEDrydockingSEAMECPALADIN18012026.pdf" data-stock="SAIL"><a href="https://nsearchives.nseindia.com/corporate/SEAMECLTD_18012026114427_BSENSEDrydockingSEAMECPALADIN18012026.pdf" target="_blank">https://nsearchives.nseindia.com/corporate/SEAMECLTD_18012026114427_BSENSEDrydockingSEAMECPALADIN18012026.pdf</a></td><td class="col-action"></td></tr><tr><td class="col-stock">SAIL</td><td class="col-source">NSE_Corporate_Filings_All</td><td class="col-published">12-Jan-2026 12:28:50</td><td class="col-description">Sai Life Sciences Limited has informed the Exchange about Certificate under Regulation 74(5) of SEBI (Depositories and Participants) Regulations, 2018</td><td class="col-link"><input type="checkbox" class="pdf-checkbox" data-url="https://nsearchives.nseindia.com/corporate/SAILIFE_12012026122841_74_5__Covering_F.pdf" data-stock="SAIL"><a href="https://nsearchives.nseindia.com/corporate/SAILIFE_12012026122841_74_5__Covering_F.pdf" target="_blank">https://nsearchives.nseindia.com/corporate/SAILIFE_12012026122841_74_5__Covering_F.pdf</a></td><td class="col-action"></td></tr><tr class="kw-row"><td class="col-stock">SAIL</td><td class="col-source">NSE_Corporate_Filings_All</td><td class="col-published">20-Jan-2026 11:38:04</td><td class="col-description" title="general: contract, order; orders_revenue: contract, order">Company has been declared as L-1 bidder by SAIL for 2 MW Roof Top Solar Project</td><td class="col-link"><input type="checkbox" class="pdf-checkbox" data-url="https://nsearchives.nseindia.com/corporate/PROSTARM_20012026113745_SE_L1.pdf" data-stock="SAIL"><a href="https://nsearchives.nseindia.com/corporate/PROSTARM_20012026113745_SE_L1.pdf" target="_blank">https://nsearchives.nseindia.com/corporate/PROSTARM_20012026113745_SE_L1.pdf</a></td><td class="col-action"></td></tr><tr><td class="col-stock">SHRIRAMFIN</td><td class="col-source">Voting_Results</td><td class="col-published">14-Jan-2026 18:59:23</td><td class="col-description">MEETING DATE : 14-JAN-2026</td><td class="col-link"><a href="https://nsearchives.nseindia.com/corporate/xbrl/RESULT_VOTING_1601111_14012026065926_WEB.xml" target="_blank">https://nsearchives.nseindia.com/corporate/xbrl/RESULT_VOTING_1601111_14012026065926_WEB.xml</a></td><td class="col-action"><button class="analyze-btn" data-stock="SHRIRAMFIN">Analyze PDFs</button></td></tr><tr><td class="col-stock">SHRIRAMFIN</td><td class="col-source">NSE_Corporate_Filings_All</td><td class="col-published">15-Jan-2026 22:02:06</td><td class="col-description">Shriram Finance Limited has informed the Exchange about Credit Rating</td><td class="col-link"><input type="checkbox" class="pdf-checkbox" data-url="https://nsearchives.nseindia.com/corporate/Mathew_15012026220051_BSENSEcreditrating15126SP.pdf" data-stock="SHRIRAMFIN"><a href="https://nsearchives.nseindia.com/corporate/Mathew_15012026220051_BSENSEcreditrating15126SP.pdf" target="_blank">https://nsearchives.nseindia.com/corporate/Mathew_15012026220051_BSENSEcreditrating15126SP.pdf</a></td><td class="col-action"></td></tr><tr class="kw-row"><td class="col-stock">SHRIRAMFIN</td><td class="col-source">NSE_Corporate_Filings_All</td><td class="col-published">14-Jan-2026 18:59:32</td><td class="col-description">Shriram Finance Limited has informed the Exchange about General Updates</td><td class="col-link"><input type="checkbox" class="pdf-checkbox" data-url="https://nsearchives.nseindia.com/corporate/Mathew_14012026185857_BSENSEEGMVotingResultsScrutinizerreport.pdf" data-stock="SHRIRAMFIN"><a href="https://nsearchives.nseindia.com/corporate/Mathew_14012026185857_BSENSEEGMVotingResultsScrutinizerreport.pdf" target="_blank">https://nsearchives.nseindia.com/corporate/Mathew_14012026185857_BSENSEEGMVoting<span class="kw">Results</span>Scrutinizerreport.pdf</a></td><td class="col-action"></td></tr><tr class="kw-row"><td class="col-stock">SHRIRAMFIN</td><td class="col-source">NSE_Corporate_Filings_All</td><td class="col-published">14-Jan-2026 18:56:29</td><td class="col-description" title="general: results">Shriram Finance Limited has submitted the Exchange a copy Scrutinizer's report of Extra-ordinary General Meeting held on January 14, 2026 along with voting <span class="kw">results</span>.</td><td class="col-link"><input type="checkbox" class="pdf-checkbox" data-url="https://nsearchives.nseindia.com/corporate/Mathew_14012026185620_BSENSEEGMVotingResultsScrutinizerreport.pdf" data-stock="SHRIRAMFIN"><a href="https://nsearchives.nseindia.com/corporate/Mathew_14012026185620_BSENSEEGMVotingResultsScrutinizerreport.pdf" target="_blank">https://nsearchives.nseindia.com/corporate/Mathew_14012026185620_BSENSEEGMVoting<span class="kw">Results</span>Scrutinizerreport.pdf</a></td><td class="col-action"></td></tr><tr><td class="col-stock">SHRIRAMFIN</td><td class="col-source">NSE_Corporate_Filings_All</td><td class="col-published">14-Jan-2026 17:39:52</td><td class="col-description">Shriram Finance Limited has informed the Exchange regarding Proceedings of Extraordinary General Meeting held on January 14, 2026</td><td class="col-link"><input type="checkbox" class="pdf-checkbox" data-url="https://nsearchives.nseindia.com/corporate/Mathew_14012026173933_NSEBSEEGMproceedings.pdf" data-stock="SHRIRAMFIN"><a href="https://nsearchives.nseindia.com/corporate/Mathew_14012026173933_NSEBSEEGMproceedings.pdf" target="_blank">https://nsearchives.nseindia.com/corporate/Mathew_14012026173933_NSEBSEEGMproceedings.pdf</a></td><td class="col-action"></td></tr><tr><td class="col-stock">SHRIRAMFIN</td><td class="col-source">NSE_Corporate_Filings_All</td><td class="col-published">14-Jan-2026 10:59:17</td><td class="col-description">Shriram Finance Limited has informed the Exchange about  Crisil AA+/Watch Positive  rating has been assigned to the Company s Fixed Deposit Programme by CRISIL Ratings Limited.</td><td class="col-link"><input type="checkbox" class="pdf-checkbox" data-url="https://nsearchives.nseindia.com/corporate/Mathew_14012026105051_BSENSEIntimationofCreditRatingFDCRISIL14012026.pdf" data-stock="SHRIRAMFIN"><a href="https://nsearchives.nseindia.com/corporate/Mathew_14012026105051_BSENSEIntimationofCreditRatingFDCRISIL14012026.pdf" target="_blank">https://nsearchives.nseindia.com/corporate/Mathew_14012026105051_BSENSEIntimationofCreditRatingFDCRISIL14012026.pdf</a></td><td class="col-action"></td></tr><tr><td class="col-stock">SHRIRAMFIN</td><td class="col-source">NSE_Corporate_Filings_All</td><td class="col-published">21-Jan-2026 19:09:06</td><td class="col-description">Shriram Finance Limited has informed the Exchange about Credit Rating</td><td class="col-link"><input type="checkbox" class="pdf-checkbox" data-url="https://nsearchives.nseindia.com/corporate/Mathew_21012026190849_FitchBSENSEcreditrating21012026.pdf" data-stock="SHRIRAMFIN"><a href="https://nsearchives.nseindia.com/corporate/Mathew_21012026190849_FitchBSENSEcreditrating21012026.pdf" target="_blank">https://nsearchives.nseindia.com/corporate/Mathew_21012026190849_FitchBSENSEcreditrating21012026.pdf</a></td><td class="col-action"></td></tr><tr><td class="col-stock">SHRIRAMFIN</td><td class="col-source">NSE_Corporate_Filings_All</td><td class="col-published">21-Jan-2026 16:42:30</td><td class="col-description">Shriram Finance Limited has informed the Exchange about Certificate under SEBI (Depositories and Participants) Regulations, 2018</td><td class="col-link"><input type="checkbox" class="pdf-checkbox" data-url="https://nsearchives.nseindia.com/corporate/Mathew_21012026164155_BSENSE_21012026.pdf" data-stock="SHRIRAMFIN"><a href="https://nsearchives.nseindia.com/corporate/Mathew_21012026164155_BSENSE_21012026.pdf" target="_blank">https://nsearchives.nseindia.com/corporate/Mathew_21012026164155_BSENSE_21012026.pdf</a></td><td class="col-action"></td></tr><tr><td class="col-stock">SHRIRAMFIN</td><td class="col-source">NSE_Corporate_Filings_All</td><td class="col-published">20-Jan-2026 17:43:02</td><td class="col-description">Shriram Finance Limited has informed the Exchange about Schedule of meet</td><td class="col-link"><input type="checkbox" class="pdf-checkbox" data-url="https://nsearchives.nseindia.com/corporate/Mathew_20012026174246_BSENSE_AnalystMeet_2012026.pdf" data-stock="SHRIRAMFIN"><a href="https://nsearchives.nseindia.com/corporate/Mathew_20012026174246_BSENSE_AnalystMeet_2012026.pdf" target="_blank">https://nsearchives.nseindia.com/corporate/Mathew_20012026174246_BSENSE_AnalystMeet_2012026.pdf</a></td><td class="col-action"></td></tr><tr><td class="col-stock">SHRIRAMFIN</td><td class="col-source">NSE_Corporate_Filings_All</td><td class="col-published">19-Jan-2026 14:34:23</td><td class="col-description">Shriram Finance Limited has informed the Exchange about Schedule of meet and Intimation of Conference Call</td><td class="col-link"><input type="checkbox" class="pdf-checkbox" data-url="https://nsearchives.nseindia.com/corporate/Mathew_19012026143413_NSEBSE_Concall_Invite.pdf" data-stock="SHRIRAMFIN"><a href="https://nsearchives.nseindia.com/corporate/Mathew_19012026143413_NSEBSE_Concall_Invite.pdf" target="_blank">https://nsearchives.nseindia.com/corporate/Mathew_19012026143413_NSEBSE_Concall_Invite.pdf</a></td><td class="col-action"></td></tr><tr><td class="col-stock">SKFINDUS</td><td class="col-source">NSE_Corporate_Filings_All</td><td class="col-published">12-Jan-2026 18:13:11</td><td class="col-description">Pursuant to Regulation 74(5) of SEBI (Depositories and Participants) Regulations, 2018, we wish to inform you that the Company has received a certificate from our Registrar and Share Transfer Agent ( RTA ), M/s MUFG Intime India Private Limited (formerly known as Link Intime India Private Limited), for the quarter ended 31st December 2025*. The said certificate confirms that the details of securities dematerialized / rematerialized during the aforesaid quarter, as required under Regulation 74(5) of SEBI (Depositories and Participants) Regulations, 2018, have been duly furnished by the RTA to all the Stock Exchanges where the shares of the Company are listed. As required under Regulation 74(5) of SEBI (Depositories and Participants) Regulations, 2018, enclosed herewith is the compliance certificate dated 09th January 2026 for the quarter ended 31st December 2025 received from the RTA, marked as Annexure A. *Please note that the period covered for ensuring compliance under Regulation 74(5) of SEBI (Depositories and Participants) Regulations, 2018 commenced from 05th December 2025 i.e. date of listing of the Company and ended on 31st December 2025.</td><td class="col-link"><input type="checkbox" class="pdf-checkbox" data-url="https://nsearchives.nseindia.com/corporate/SKFINDUS25_12012026181143_NSE.pdf" data-stock="SKFINDUS"><a href="https://nsearchives.nseindia.com/corporate/SKFINDUS25_12012026181143_NSE.pdf" target="_blank">https://nsearchives.nseindia.com/corporate/SKFINDUS25_12012026181143_NSE.pdf</a></td><td class="col-action"><button class="analyze-btn" data-stock="SKFINDUS">Analyze PDFs</button></td></tr><tr><td class="col-stock">TATASTEEL</td><td class="col-source">Offer_Documents</td><td class="col-published">14-Jan-2026</td><td class="col-description">CP-NI-Disclosure Document-INE081A14GN5 TSL 30/03/26</td><td class="col-link"><a href="https://nsearchives.nseindia.com/corporate/CP_NI_TSL_INE081A14GN5_140126.zip" target="_blank">https://nsearchives.nseindia.com/corporate/CP_NI_TSL_INE081A14GN5_140126.zip</a></td><td class="col-action"><button class="analyze-btn" data-stock="TATASTEEL">Analyze PDFs</button></td></tr><tr><td class="col-stock">TATASTEEL</td><td class="col-source">EconomicTimes</td><td class="col-published">Mon, 12 Jan 2026 08:28:53 +0530</td><td class="col-description"></td><td class="col-link"><a href="https://economictimes.indiatimes.com/markets/stocks/stock-liveblog/tata-steel-share-price-today-live-12-jan-2026/liveblog/126474378.cms" target="_blank">https://economictimes.indiatimes.com/markets/stocks/stock-liveblog/tata-steel-share-price-today-live-12-jan-2026/liveblog/126474378.cms</a></td><td class="col-action"></td></tr><tr><td class="col-stock">TATASTEEL</td><td class="col-source">EconomicTimes</td><td class="col-published">Fri, 16 Jan 2026 08:08:25 +0530</td><td class="col-description"></td><td class="col-link"><a href="https://economictimes.indiatimes.com/markets/stocks/stock-liveblog/tata-steel-stock-price-livestock-price-today-live-updates-16-jan-2026/liveblog/126555908.cms" target="_blank">https://economictimes.indiatimes.com/markets/stocks/stock-liveblog/tata-steel-stock-price-livestock-price-today-live-updates-16-jan-2026/liveblog/126555908.cms</a></td><td class="col-action"></td></tr><tr><td class="col-stock">TATASTEEL</td><td class="col-source">EconomicTimes</td><td class="col-published">Sun, 18 Jan 2026 09:28:22 +0530</td><td class="col-description">Axis Securities has identified three stocks – Bank of India, Tata Steel, and HCL Tech – with strong technical setups for potential short-term gains of up to 19%. These picks are based on favorable risk-reward trends and recent chart breakouts, suggesting opportunities amid market volatility.</td><td class="col-link"><a href="https://economictimes.indiatimes.com/markets/stocks/news/top-picks-3-stocks-to-buy-this-week-that-can-give-returns-of-up-to-19-in-short-term-do-you-own-any/slideshow/126636918.cms" target="_blank">https://economictimes.indiatimes.com/markets/stocks/news/top-picks-3-stocks-to-buy-this-week-that-can-give-returns-of-up-to-19-in-short-term-do-you-own-any/slideshow/126636918.cms</a></td><td class="col-action"></td></tr><tr><td class="col-stock">TATASTEEL</td><td class="col-source">EconomicTimes</td><td class="col-published">Mon, 19 Jan 2026 08:20:26 +0530</td><td class="col-description"></td><td class="col-link"><a href="https://economictimes.indiatimes.com/markets/stocks/stock-liveblog/tata-steel-share-price-live-19-jan-2026/liveblog/126666462.cms" target="_blank">https://economictimes.indiatimes.com/markets/stocks/stock-liveblog/tata-steel-share-price-live-19-jan-2026/liveblog/126666462.cms</a></td><td class="col-action"></td></tr><tr class="neg-row"><td class="col-stock">TATASTEEL</td><td class="col-source">NSE_Corporate_Filings_All</td><td class="col-published">12-Jan-2026 21:33:13</td><td class="col-description" title="negative: litigation">Tata Steel Limited has informed the exchange about the Disclosure under Regulations 30 and 51 of Securities and Exchange Board of India (Listing Obligations and Disclosure Requirements) Regulations, 2015</td><td class="col-link"><input type="checkbox" class="pdf-checkbox" data-url="https://nsearchives.nseindia.com/corporate/NIDHIFADNAVIS_12012026212726_BSENSE.pdf" data-stock="TATASTEEL"><a href="https://nsearchives.nseindia.com/corporate/NIDHIFADNAVIS_12012026212726_BSENSE.pdf" target="_blank">https://nsearchives.nseindia.com/corporate/NIDHIFADNAVIS_12012026212726_BSENSE.pdf</a></td><td class="col-action"></td></tr><tr class="neg-row"><td class="col-stock">TATASTEEL</td><td class="col-source">NSE_Corporate_Filings_All</td><td class="col-published">21-Jan-2026 18:17:16</td><td class="col-description" title="negative: litigation">Tata Steel Limited has informed the exchange about the Disclosure under Regulations 30 and 51 of Securities and Exchange Board of India (Listing Obligations and Disclosure Requirements) Regulations, 2015</td><td class="col-link"><input type="checkbox" class="pdf-checkbox" data-url="https://nsearchives.nseindia.com/corporate/NIDHIFADNAVIS_21012026181513_BSENSE.pdf" data-stock="TATASTEEL"><a href="https://nsearchives.nseindia.com/corporate/NIDHIFADNAVIS_21012026181513_BSENSE.pdf" target="_blank">https://nsearchives.nseindia.com/corporate/NIDHIFADNAVIS_21012026181513_BSENSE.pdf</a></td><td class="col-action"></td></tr><tr class="kw-row"><td class="col-stock">UJJIVANSFB</td><td class="col-source">EconomicTimes</td><td class="col-published">Thu, 22 Jan 2026 17:05:53 +0530</td><td class="col-description">Ujjivan Small Finance Bank posted a strong Q3 performance, reporting its highest-ever net interest income of Rs 1,000 crore and a 71% jump in profit to Rs 186 crore. Improved collection efficiency and easing microfinance stress reduced provisioning needs, while a rising share of secured <span class="kw">loa</span>ns bolstered asset quality and profitability.</td><td class="col-link"><a href="https://economictimes.indiatimes.com/markets/stocks/earnings/ujjivan-small-finance-bank-delivers-record-rs-1000-cr-nii-in-q3-profit-zooms-71-yoy/articleshow/127148087.cms" target="_blank">https://economictimes.indiatimes.com/markets/stocks/earnings/ujjivan-small-finance-bank-delivers-record-rs-1000-cr-nii-in-q3-profit-zooms-71-yoy/articleshow/127148087.cms</a></td><td class="col-action"><button class="analyze-btn" data-stock="UJJIVANSFB">Analyze PDFs</button></td></tr><tr><td class="col-stock">UJJIVANSFB</td><td class="col-source">NSE_Corporate_Filings</td><td class="col-published">22-Jan-2026 23:28:11</td><td class="col-description">Ujjivan Small Finance Bank Limited has informed the Exchange about Link of Recording</td><td class="col-link"><input type="checkbox" class="pdf-checkbox" data-url="https://nsearchives.nseindia.com/corporate/UJJIVANBANK_22012026232801_125_Intimation_earnings_call_audio_Q3_22012026.pdf" data-stock="UJJIVANSFB"><a href="https://nsearchives.nseindia.com/corporate/UJJIVANBANK_22012026232801_125_Intimation_earnings_call_audio_Q3_22012026.pdf" target="_blank">https://nsearchives.nseindia.com/corporate/UJJIVANBANK_22012026232801_125_Intimation_earnings_call_audio_Q3_22012026.pdf</a></td><td class="col-action"></td></tr><tr><td class="col-stock">UJJIVANSFB</td><td class="col-source">NSE_Corporate_Filings_All</td><td class="col-published">14-Jan-2026 16:17:53</td><td class="col-description">Ujjivan Small Finance Bank Limited has informed the Exchange regarding Resignation of Mr Ashim Sarkar as Business Head - MSME of the Bank w.e.f. January 14, 2026.</td><td class="col-link"><input type="checkbox" class="pdf-checkbox" data-url="https://nsearchives.nseindia.com/corporate/UJJIVANBANK_14012026161651_117_Intimation_Change_SMP_14012026.pdf" data-stock="UJJIVANSFB"><a href="https://nsearchives.nseindia.com/corporate/UJJIVANBANK_14012026161651_117_Intimation_Change_SMP_14012026.pdf" target="_blank">https://nsearchives.nseindia.com/corporate/UJJIVANBANK_14012026161651_117_Intimation_Change_SMP_14012026.pdf</a></td><td class="col-action"></td></tr><tr><td class="col-stock">UJJIVANSFB</td><td class="col-source">NSE_Corporate_Filings_All</td><td class="col-published">22-Jan-2026 15:15:57</td><td class="col-description">Ujjivan Small Finance Bank Limited has informed the Exchange about Schedule of meet</td><td class="col-link"><input type="checkbox" class="pdf-checkbox" data-url="https://nsearchives.nseindia.com/corporate/UJJIVANBANK_22012026151546_124_Intimation_Non-Deal_Roadshow_22012026.pdf" data-stock="UJJIVANSFB"><a href="https://nsearchives.nseindia.com/corporate/UJJIVANBANK_22012026151546_124_Intimation_Non-Deal_Roadshow_22012026.pdf" target="_blank">https://nsearchives.nseindia.com/corporate/UJJIVANBANK_22012026151546_124_Intimation_Non-Deal_Roadshow_22012026.pdf</a></td><td class="col-action"></td></tr><tr class="kw-row"><td class="col-stock">UJJIVANSFB</td><td class="col-source">NSE_Corporate_Filings_All</td><td class="col-published">22-Jan-2026 14:13:31</td><td class="col-description" title="general: results; financial_results: financial results">Ujjivan Small Finance Bank Limited has informed the Exchange regarding a press release dated January 22, 2026, titled "<span class="kw">Financial Results</span> Q3 FY26".</td><td class="col-link"><input type="checkbox" class="pdf-checkbox" data-url="https://nsearchives.nseindia.com/corporate/UJJIVANBANK_22012026141304_123_Intimation_Press_Release_Q3_22012026_combined.pdf" data-stock="UJJIVANSFB"><a href="https://nsearchives.nseindia.com/corporate/UJJIVANBANK_22012026141304_123_Intimation_Press_Release_Q3_22012026_combined.pdf" target="_blank">https://nsearchives.nseindia.com/corporate/UJJIVANBANK_22012026141304_123_Intimation_Press_Release_Q3_22012026_combined.pdf</a></td><td class="col-action"></td></tr><tr><td class="col-stock">UJJIVANSFB</td><td class="col-source">NSE_Corporate_Filings_All</td><td class="col-published">22-Jan-2026 14:08:22</td><td class="col-description">Ujjivan Small Finance Bank Limited has informed the Exchange about Investor Presentation</td><td class="col-link"><input type="checkbox" class="pdf-checkbox" data-url="https://nsearchives.nseindia.com/corporate/UJJIVANBANK_22012026140812_122_Intimation_Investor_PPT_Q3_22012026_combined.pdf" data-stock="UJJIVANSFB"><a href="https://nsearchives.nseindia.com/corporate/UJJIVANBANK_22012026140812_122_Intimation_Investor_PPT_Q3_22012026_combined.pdf" target="_blank">https://nsearchives.nseindia.com/corporate/UJJIVANBANK_22012026140812_122_Intimation_Investor_PPT_Q3_22012026_combined.pdf</a></td><td class="col-action"></td></tr><tr class="kw-row"><td class="col-stock">UJJIVANSFB</td><td class="col-source">NSE_Corporate_Filings_All</td><td class="col-published">22-Jan-2026 13:57:06</td><td class="col-description" title="general: results; financial_results: financial results">Ujjivan Small Finance Bank Limited has submitted to the Exchange, the <span class="kw">financial results</span> for the period ended December 31, 2025.</td><td class="col-link"><input type="checkbox" class="pdf-checkbox" data-url="https://nsearchives.nseindia.com/corporate/UJJIVANBANK_22012026135606_121_Board_Meeting_Outcome_FR_Q3_22012026_combined.pdf" data-stock="UJJIVANSFB"><a href="https://nsearchives.nseindia.com/corporate/UJJIVANBANK_22012026135606_121_Board_Meeting_Outcome_FR_Q3_22012026_combined.pdf" target="_blank">https://nsearchives.nseindia.com/corporate/UJJIVANBANK_22012026135606_121_Board_Meeting_Outcome_FR_Q3_22012026_combined.pdf</a></td><td class="col-action"></td></tr><tr><td class="col-stock">UJJIVANSFB</td><td class="col-source">NSE_Corporate_Filings_All</td><td class="col-published">22-Jan-2026 11:17:55</td><td class="col-description">Ujjivan Small Finance Bank Limited has informed the Exchange regarding Change in Director(s) of the company.</td><td class="col-link"><input type="checkbox" class="pdf-checkbox" data-url="https://nsearchives.nseindia.com/corporate/UJJIVANBANK_22012026111747_120_Board_Meeting_Outcome_Directors_22012026.pdf" data-stock="UJJIVANSFB"><a href="https://nsearchives.nseindia.com/corporate/UJJIVANBANK_22012026111747_120_Board_Meeting_Outcome_Directors_22012026.pdf" target="_blank">https://nsearchives.nseindia.com/corporate/UJJIVANBANK_22012026111747_120_Board_Meeting_Outcome_Directors_22012026.pdf</a></td><td class="col-action"></td></tr><tr><td class="col-stock">UJJIVANSFB</td><td class="col-source">NSE_Corporate_Filings_All</td><td class="col-published">21-Jan-2026 18:34:56</td><td class="col-description">Ujjivan Small Finance Bank Limited has informed the Exchange regarding Grant of 283559  Options. under the ESOP scheme of the Bank.</td><td class="col-link"><input type="checkbox" class="pdf-checkbox" data-url="https://nsearchives.nseindia.com/corporate/UJJIVANBANK_21012026183204_119_Intimation_ESOP_Grant_21012026.pdf" data-stock="UJJIVANSFB"><a href="https://nsearchives.nseindia.com/corporate/UJJIVANBANK_21012026183204_119_Intimation_ESOP_Grant_21012026.pdf" target="_blank">https://nsearchives.nseindia.com/corporate/UJJIVANBANK_21012026183204_119_Intimation_ESOP_Grant_21012026.pdf</a></td><td class="col-action"></td></tr><tr><td class="col-stock">UJJIVANSFB</td><td class="col-source">NSE_Corporate_Filings_All</td><td class="col-published">19-Jan-2026 11:42:52</td><td class="col-description">Ujjivan Small Finance Bank Limited has informed the Exchange about Copy of Newspaper Publication - Notice of transfer to Investor Education and Protection Fund(IEPF)</td><td class="col-link"><input type="checkbox" class="pdf-checkbox" data-url="https://nsearchives.nseindia.com/corporate/BANKUJJIVAN_19012026114209_118_Intimation_Newspaper_publication_UFSL_IEPF_19012026.pdf" data-stock="UJJIVANSFB"><a href="https://nsearchives.nseindia.com/corporate/BANKUJJIVAN_19012026114209_118_Intimation_Newspaper_publication_UFSL_IEPF_19012026.pdf" target="_blank">https://nsearchives.nseindia.com/corporate/BANKUJJIVAN_19012026114209_118_Intimation_Newspaper_publication_UFSL_IEPF_19012026.pdf</a></td><td class="col-action"></td></tr><tr class="kw-row"><td class="col-stock">UNIONBANK</td><td class="col-source">EconomicTimes</td><td class="col-published">Wed, 14 Jan 2026 18:00:26 +0530</td><td class="col-description" title="general: results">State-run Union Bank of India on Wednesday reported a 9.7 per cent increase in consolidated net profit for the December quarter at Rs 5,073 crore, helped by a sharp fall in provisions.</td><td class="col-link"><a href="https://economictimes.indiatimes.com/markets/stocks/earnings/union-bank-of-india-q3-results-profit-rises-10-yoy-to-rs-5073-crore-on-lower-provisions/articleshow/126527023.cms" target="_blank">https://economictimes.indiatimes.com/markets/stocks/earnings/union-bank-of-india-q3-<span class="kw">results</span>-profit-rises-10-yoy-to-rs-5073-crore-on-lower-provisions/articleshow/126527023.cms</a></td><td class="col-action"><button class="analyze-btn" data-stock="UNIONBANK">Analyze PDFs</button></td></tr><tr><td class="col-stock">UNIONBANK</td><td class="col-source">EconomicTimes</td><td class="col-published">Fri, 16 Jan 2026 08:55:37 +0530</td><td class="col-description">On January 14, four Nifty200 stocks featured on the bullish White Marubozu scanner, indicating strong buying interest during the session. The candlestick pattern suggests firm buyer dominance from open to close, reflecting improving momentum and a potential continuation of the uptrend in select stocks</td><td class="col-link"><a href="https://economictimes.indiatimes.com/markets/stocks/news/union-bank-of-india-vedanta-among-4-stocks-flashing-bullish-signals-indicating-possible-uptrend/slideshow/126556671.cms" target="_blank">https://economictimes.indiatimes.com/markets/stocks/news/union-bank-of-india-vedanta-among-4-stocks-flashing-bullish-signals-indicating-possible-uptrend/slideshow/126556671.cms</a></td><td class="col-action"></td></tr><tr><td class="col-stock">UNIONBANK</td><td class="col-source">NSE_Corporate_Filings_All</td><td class="col-published">17-Jan-2026 17:00:00</td><td class="col-description">Union Bank of India has informed the Exchange about Credit Rating</td><td class="col-link"><input type="checkbox" class="pdf-checkbox" data-url="https://nsearchives.nseindia.com/corporate/UNIONBANK_17012026165949_16012026_credit_rating-Indiaratings.pdf" data-stock="UNIONBANK"><a href="https://nsearchives.nseindia.com/corporate/UNIONBANK_17012026165949_16012026_credit_rating-Indiaratings.pdf" target="_blank">https://nsearchives.nseindia.com/corporate/UNIONBANK_17012026165949_16012026_credit_rating-Indiaratings.pdf</a></td><td class="col-action"></td></tr><tr><td class="col-stock">UNIONBANK</td><td class="col-source">NSE_Corporate_Filings_All</td><td class="col-published">14-Jan-2026 16:54:55</td><td class="col-description">Union Bank of India has informed the Exchange about Link of Recording</td><td class="col-link"><input type="checkbox" class="pdf-checkbox" data-url="https://nsearchives.nseindia.com/corporate/UNIONBANK_14012026165436_Audiorecording_Analyst_Meet_31122025_NSE_BSE.pdf" data-stock="UNIONBANK"><a href="https://nsearchives.nseindia.com/corporate/UNIONBANK_14012026165436_Audiorecording_Analyst_Meet_31122025_NSE_BSE.pdf" target="_blank">https://nsearchives.nseindia.com/corporate/UNIONBANK_14012026165436_Audiorecording_Analyst_Meet_31122025_NSE_BSE.pdf</a></td><td class="col-action"></td></tr><tr><td class="col-stock">UNIONBANK</td><td class="col-source">NSE_Corporate_Filings_All</td><td class="col-published">14-Jan-2026 13:06:15</td><td class="col-description">Union Bank of India has informed the Exchange about Investor Presentation</td><td class="col-link"><input type="checkbox" class="pdf-checkbox" data-url="https://nsearchives.nseindia.com/corporate/UNIONBANK_14012026130554_Presentation_31122025.pdf" data-stock="UNIONBANK"><a href="https://nsearchives.nseindia.com/corporate/UNIONBANK_14012026130554_Presentation_31122025.pdf" target="_blank">https://nsearchives.nseindia.com/corporate/UNIONBANK_14012026130554_Presentation_31122025.pdf</a></td><td class="col-action"></td></tr><tr class="kw-row"><td class="col-stock">UNIONBANK</td><td class="col-source">NSE_Corporate_Filings_All</td><td class="col-published">14-Jan-2026 12:56:31</td><td class="col-description" title="general: results; financial_results: financial results">Union Bank of India has informed the Exchange regarding a press release dated January 14, 2026, titled "Press Release on the <span class="kw">Financial Results</span> of the Bank for the Third Quarter/Nine Months ended on December 31, 2025".</td><td class="col-link"><input type="checkbox" class="pdf-checkbox" data-url="https://nsearchives.nseindia.com/corporate/UNIONBANK_14012026125623_Press_Release_31122025.pdf" data-stock="UNIONBANK"><a href="https://nsearchives.nseindia.com/corporate/UNIONBANK_14012026125623_Press_Release_31122025.pdf" target="_blank">https://nsearchives.nseindia.com/corporate/UNIONBANK_14012026125623_Press_Release_31122025.pdf</a></td><td class="col-action"></td></tr><tr class="kw-row"><td class="col-stock">UNIONBANK</td><td class="col-source">NSE_Corporate_Filings_All</td><td class="col-published">14-Jan-2026 12:46:00</td><td class="col-description" title="general: results; financial_results: financial results">Union Bank of India has submitted to the Exchange, the <span class="kw">financial results</span> for the period ended December 31, 2025.</td><td class="col-link"><input type="checkbox" class="pdf-checkbox" data-url="https://nsearchives.nseindia.com/corporate/UNIONBANK_14012026124434_Results_Dec_2025.pdf" data-stock="UNIONBANK"><a href="https://nsearchives.nseindia.com/corporate/UNIONBANK_14012026124434_Results_Dec_2025.pdf" target="_blank">https://nsearchives.nseindia.com/corporate/UNIONBANK_14012026124434_<span class="kw">Results</span>_Dec_2025.pdf</a></td><td class="col-action"></td></tr><tr><td class="col-stock">UNIONBANK</td><td class="col-source">NSE_Corporate_Filings_All</td><td class="col-published">12-Jan-2026 17:29:04</td><td class="col-description">Union Bank of India has informed the Exchange about Certificate under SEBI (Depositories and Participants) Regulations, 2018</td><td class="col-link"><input type="checkbox" class="pdf-checkbox" data-url="https://nsearchives.nseindia.com/corporate/UNIONBANK_12012026172842_Disclosure_74_5__Dec_2025.pdf" data-stock="UNIONBANK"><a href="https://nsearchives.nseindia.com/corporate/UNIONBANK_12012026172842_Disclosure_74_5__Dec_2025.pdf" target="_blank">https://nsearchives.nseindia.com/corporate/UNIONBANK_12012026172842_Disclosure_74_5__Dec_2025.pdf</a></td><td class="col-action"></td></tr><tr><td class="col-stock">UNIONBANK</td><td class="col-source">NSE_Corporate_Filings_All</td><td class="col-published">20-Jan-2026 14:45:11</td><td class="col-description">Union Bank of India has informed the Exchange about Transcript</td><td class="col-link"><input type="checkbox" class="pdf-checkbox" data-url="https://nsearchives.nseindia.com/corporate/UNIONBANK_20012026144436_Transcript_earnings_call_Dec_2025_bilingual.pdf" data-stock="UNIONBANK"><a href="https://nsearchives.nseindia.com/corporate/UNIONBANK_20012026144436_Transcript_earnings_call_Dec_2025_bilingual.pdf" target="_blank">https://nsearchives.nseindia.com/corporate/UNIONBANK_20012026144436_Transcript_earnings_call_Dec_2025_bilingual.pdf</a></td><td class="col-action"></td></tr></tbody></table>
+        <div class="upload-bar">
+            <label class="upload-label">Upload stock list (.txt, .csv, .xlsx):</label>
+            <input type="file" id="stockListFile" accept=".txt,.csv,.xlsx,.xls" />
+            <button type="button" id="uploadStockListBtn">Load matches</button>
+            <span id="uploadStatus" class="upload-status"></span>
+        </div>
+    <table><thead><tr><th class="col-stock">Matched_Stock</th><th class="col-source">Source</th><th class="col-published">Published</th><th class="col-description">Description</th><th class="col-link">Link</th><th class="col-action">Action</th></tr></thead><tbody id="resultsBody"></tbody></table>
         <div id="resultModal" class="modal">
             <div class="modal-content">
                 <div class="modal-header">
@@ -241,6 +414,10 @@
         
         <script>
             (function() {
+                const SERVER_URL = (window.location && window.location.protocol === "http:") ? "" : "http://127.0.0.1:5005";
+                let HIGHLIGHT = [], NEGATIVE = [];
+
+                function runApp() {
                 const input = document.getElementById("stockSearchInput");
                 const btn = document.getElementById("stockSearchBtn");
                 const resetBtn = document.getElementById("stockResetBtn");
@@ -248,10 +425,27 @@
                 const excelBtn = document.getElementById("excelSearchBtn");
                 const tbody = document.getElementById("resultsBody");
                 const totalMatchesEl = document.getElementById("totalMatches");
-                const stocksSearchedEl = document.getElementById("stocksSearched");
+                const stocksFoundCountEl = document.getElementById("stocksFoundCount");
+                const stocksFoundListEl = document.getElementById("stocksFoundList");
+                const stocksNotFoundCountEl = document.getElementById("stocksNotFoundCount");
+                const stocksNotFoundListEl = document.getElementById("stocksNotFoundList");
 
-                const HIGHLIGHT = ["order", "work order", "contract", "letter of award", "loa", "results", "guidance", "capex", "capacity expansion", "promoter", "stake", "acquisition", "merger", "approval", "joint venture", "strategic", "fund raising", "preferential allotment", "qip", "debt reduction", "rating upgrade", "value added", "value-added", "monopoly", "margin", "margin expansion", "margins", "expansion", "order", "order book", "order inflow", "work order", "contract", "rate contract", "framework agreement", "letter of award", "loa", "repeat order", "long term contract", "export order", "financial results", "quarterly results", "results declared", "profit growth", "revenue growth", "margin expansion", "ebitda margin", "operating leverage", "cost optimization", "turnaround", "loss reduced", "cash flow positive", "working capital improvement", "capex", "capital expenditure", "capacity expansion", "new plant", "greenfield", "brownfield", "commercial production", "trial run", "commissioning", "capacity utilization", "backward integration", "forward integration", "acquisition", "merger", "amalgamation", "demerger", "spin off", "joint venture", "subsidiary", "strategic partnership", "technology tie up", "exclusive agreement", "fund raising", "preferential allotment", "qip", "rights issue", "equity infusion", "warrant conversion", "debt reduction", "loan repayment", "balance sheet strengthening", "promoter", "promoter buying", "insider trading", "stake increase", "pledge release", "pledge reduction", "share purchase", "approval received", "regulatory approval", "government approval", "environment clearance", "licence granted", "certification", "railway order", "indian railways", "metro project", "vande bharat", "locomotive", "rolling stock", "coach manufacturing", "signalling", "kavach", "track electrification", "railway budget", "capex outlay", "infrastructure push", "public private partnership", "defence order", "ministry of defence", "indigenization", "import substitution", "strategic partnership", "long term supply agreement", "missile system", "radar system", "naval platform", "aircraft", "unmanned", "drone", "avionics", "defence exports", "export clearance", "make in india defence", "atmanirbhar bharat", "large deal", "multi year contract", "deal wins", "pipeline strong", "order backlog", "client addition", "digital transformation", "cloud", "artificial intelligence", "machine learning", "data analytics", "cyber security", "enterprise software", "revenue guidance", "margin guidance", "growth outlook", "demand environment", "government approval", "cabinet approval", "disinvestment", "strategic sale", "asset monetization", "capital infusion", "sovereign guarantee", "viability gap funding", "tariff revision", "price revision", "subsidy", "recovery of dues", "clarification", "rumour", "spurious", "denies", "no material impact", "litigation", "penalty", "fine", "show cause notice", "inspection"];
-                const NEGATIVE = ["clarification", "rumour", "spurious", "denies", "no material impact", "litigation", "penalty", "fine", "show cause notice", "inspection"];
+                (function initTheme() {
+                    const KEY = "rss_feed_theme";
+                    const saved = localStorage.getItem(KEY) || "dark";
+                    document.documentElement.setAttribute("data-theme", saved);
+                    const btn = document.getElementById("themeToggle");
+                    if (btn) {
+                        btn.textContent = saved === "dark" ? "Light theme" : "Dark theme";
+                        btn.onclick = function() {
+                            const current = document.documentElement.getAttribute("data-theme") || "dark";
+                            const next = current === "dark" ? "light" : "dark";
+                            document.documentElement.setAttribute("data-theme", next);
+                            localStorage.setItem(KEY, next);
+                            btn.textContent = next === "dark" ? "Light theme" : "Dark theme";
+                        };
+                    }
+                })();
 
                 function normalize(s) {
                     return (s || "").toString().toLowerCase().replace(/[^\w\s]/g, " ").replace(/\s+/g, " ").trim();
@@ -271,32 +465,52 @@
                     return NEGATIVE.some(k => padded.includes(" " + normalize(k) + " "));
                 }
 
-                function renderRows(rows, matchedStockLabel) {
+                let ALL_ROWS = [];
+
+                function renderRows(rows, options) {
+                    const opts = typeof options === "string" ? { label: options } : (options || { label: "ALL" });
                     tbody.innerHTML = "";
-                    const stockName = matchedStockLabel || (rows.length > 0 ? rows[0].Matched_Stock : "");
-                    let buttonShown = false; // Track if button already shown for this stock
-                    
-                    rows.forEach((r, index) => {
+                    const shownButtons = new Set(); // one analyze button per stock
+
+                    // Sort/group: by stock (primary), then by Published newest first (secondary)
+                    const sorted = [...rows].sort((a, b) => {
+                        const stockA = ((a.Matched_Stock || "").split(",")[0] || "").trim().toUpperCase();
+                        const stockB = ((b.Matched_Stock || "").split(",")[0] || "").trim().toUpperCase();
+                        if (stockA !== stockB) return stockA.localeCompare(stockB, "en", { sensitivity: "base" });
+                        const dateA = Date.parse(a.Published || "") || 0;
+                        const dateB = Date.parse(b.Published || "") || 0;
+                        return dateB - dateA; // newest first
+                    });
+
+                    // Dedupe by (stock, link): keep first occurrence only per stock
+                    const seenStockLink = new Set();
+                    const deduped = sorted.filter((r) => {
+                        const stockKey = ((r.Matched_Stock || "").split(",")[0] || "").trim().toUpperCase();
+                        const link = (r.Link || "").trim();
+                        const key = stockKey + "|" + link;
+                        if (seenStockLink.has(key)) return false;
+                        seenStockLink.add(key);
+                        return true;
+                    });
+
+                    deduped.forEach((r) => {
                         const negRow = !!r.Has_Negative || isNegative(r.Row_Blob || "");
                         const tr = document.createElement("tr");
                         if (negRow) tr.className = "neg-row";
                         const tooltip = [r.KW_Universal, r.KW_Sector, r.KW_Filters].filter(Boolean).join(" | ");
-                        
-                        // Check if link is PDF
+
                         const link = r.Link || "";
                         const isPdf = link.toLowerCase().endsWith('.pdf');
-                        const stockEscaped = (stockName || "").replace(/"/g, '&quot;');
+                        const stockName = (r.Matched_Stock || "").toString();
+                        const stockEscaped = stockName.replace(/"/g, '&quot;');
                         const linkEscaped = link.replace(/"/g, '&quot;');
-                        
-                        // Add checkbox for PDF links
+
                         const checkboxHtml = isPdf ? `<input type="checkbox" class="pdf-checkbox" data-url="${linkEscaped}" data-stock="${stockEscaped}">` : "";
-                        
-                        // Show button only on first row for this stock
-                        const showButton = !buttonShown && stockName;
-                        if (showButton) buttonShown = true;
-                        
+                        const showButton = stockName && !shownButtons.has(stockName);
+                        if (showButton) shownButtons.add(stockName);
+
                         tr.innerHTML = `
-                            <td class="col-stock">${stockName || r.Matched_Stock || ""}</td>
+                            <td class="col-stock">${stockName}</td>
                             <td class="col-source">${r.Source || ""}</td>
                             <td class="col-published">${r.Published || ""}</td>
                             <td class="col-description" title="${tooltip}">${highlight(r.Description || "")}</td>
@@ -305,10 +519,19 @@
                         `;
                         tbody.appendChild(tr);
                     });
-                    totalMatchesEl.textContent = rows.length.toString();
-                    stocksSearchedEl.textContent = stockName || "";
-                    
-                    // Note: Event delegation handles buttons automatically, no need to call setupAnalyzeButtons()
+                    totalMatchesEl.textContent = deduped.length.toString();
+
+                    if (opts.stocks_found && Array.isArray(opts.stocks_found) && opts.stocks_not_found && Array.isArray(opts.stocks_not_found)) {
+                        stocksFoundCountEl.textContent = opts.stocks_found.length;
+                        stocksFoundListEl.textContent = opts.stocks_found.length ? opts.stocks_found.join(", ") : "—";
+                        stocksNotFoundCountEl.textContent = opts.stocks_not_found.length;
+                        stocksNotFoundListEl.textContent = opts.stocks_not_found.length ? opts.stocks_not_found.join(", ") : "—";
+                    } else {
+                        stocksFoundCountEl.textContent = "—";
+                        stocksFoundListEl.textContent = "";
+                        stocksNotFoundCountEl.textContent = "—";
+                        stocksNotFoundListEl.textContent = "";
+                    }
                 }
 
                 function applyFilter() {
@@ -324,7 +547,6 @@
                 function searchExcel() {
                     const qRaw = (excelInput.value || "").trim();
                     if (!qRaw) return;
-                    const SERVER_URL = "http://127.0.0.1:5005";
                     fetch(`${SERVER_URL}/search?stock=${encodeURIComponent(qRaw)}`)
                         .then(r => {
                             if (!r.ok) {
@@ -353,43 +575,67 @@
                 excelInput.addEventListener("keydown", (e) => {
                     if (e.key === "Enter") searchExcel();
                 });
-            })();
-        </script>
-        
-        <script>
-            (function() {
-                const input = document.getElementById("stockSearchInput");
-                const btn = document.getElementById("stockSearchBtn");
-                const resetBtn = document.getElementById("stockResetBtn");
-                const rows = Array.from(document.querySelectorAll("table tr")).slice(1);
 
-                function normalize(s) {
-                    return (s || "").toString().trim().toUpperCase();
-                }
-
-                function applyFilter() {
-                    const q = normalize(input.value);
-                    rows.forEach(row => {
-                        const stockCell = row.querySelector("td.col-stock");
-                        const text = normalize(stockCell ? stockCell.textContent : "");
-                        if (!q || text.includes(q)) {
-                            row.style.display = "";
-                        } else {
-                            row.style.display = "none";
+                const uploadBtn = document.getElementById("uploadStockListBtn");
+                const fileInput = document.getElementById("stockListFile");
+                const uploadStatus = document.getElementById("uploadStatus");
+                if (uploadBtn && fileInput) {
+                    uploadBtn.addEventListener("click", () => {
+                        const file = fileInput.files[0];
+                        if (!file) {
+                            if (uploadStatus) uploadStatus.textContent = "Please select a file.";
+                            return;
                         }
+                        if (uploadStatus) uploadStatus.textContent = "Loading...";
+                        const formData = new FormData();
+                        formData.append("file", file);
+                        fetch(`${SERVER_URL}/search_with_file`, {
+                            method: "POST",
+                            body: formData
+                        })
+                            .then(r => {
+                                if (!r.ok) throw new Error(r.status === 400 ? "Invalid file or no stocks in file." : `Server error: ${r.status}`);
+                                return r.json();
+                            })
+                            .then(data => {
+                                ALL_ROWS = data.results || [];
+                                renderRows(ALL_ROWS, {
+                                    label: "UPLOADED",
+                                    stocks_found: data.stocks_found || [],
+                                    stocks_not_found: data.stocks_not_found || []
+                                });
+                                if (uploadStatus) uploadStatus.textContent = `Loaded ${ALL_ROWS.length} match(es).`;
+                            })
+                            .catch(err => {
+                                if (uploadStatus) uploadStatus.textContent = "";
+                                alert(err.message || "Upload failed.");
+                            });
                     });
                 }
 
-                btn.addEventListener("click", applyFilter);
-                input.addEventListener("keydown", (e) => {
-                    if (e.key === "Enter") {
-                        applyFilter();
-                    }
-                });
-                resetBtn.addEventListener("click", () => {
-                    input.value = "";
-                    applyFilter();
-                });
+                // Initial load: fetch /all (may be empty); user can upload a stock list file to load matches
+                fetch(`${SERVER_URL}/all`)
+                    .then(r => {
+                        if (!r.ok) throw new Error(`Server error: ${r.status}`);
+                        return r.json();
+                    })
+                    .then(data => {
+                        ALL_ROWS = data.results || [];
+                        renderRows(ALL_ROWS, data.stock || "ALL");
+                    })
+                    .catch((error) => {
+                        console.error("Load /all error:", error);
+                    });
+                } // end runApp
+
+                fetch((SERVER_URL || "http://127.0.0.1:5005") + "/keywords")
+                    .then(r => r.ok ? r.json() : Promise.reject(new Error(r.status)))
+                    .then(data => {
+                        HIGHLIGHT = Array.isArray(data.highlight) ? data.highlight : [];
+                        NEGATIVE = Array.isArray(data.negative) ? data.negative : [];
+                        runApp();
+                    })
+                    .catch(() => runApp());
             })();
         </script>
         
@@ -399,7 +645,7 @@
                 const modal = document.getElementById("resultModal");
                 const modalBody = document.getElementById("modalBody");
                 const closeBtn = document.querySelector(".close");
-                const SERVER_URL = "http://127.0.0.1:5005";
+                const SERVER_URL = (window.location && window.location.protocol === "http:") ? "" : "http://127.0.0.1:5005";
                 
                 // Check if modal elements exist
                 if (!modal || !modalBody) {
@@ -428,26 +674,31 @@
                         const stockName = btn.getAttribute("data-stock");
                         if (!stockName) return;
                             
-                            // Collect checked PDF URLs for this stock
-                            const checkboxes = document.querySelectorAll(`.pdf-checkbox[data-stock="${stockName}"]:checked`);
-                            const pdfUrls = Array.from(checkboxes).map(cb => cb.getAttribute("data-url"));
+                            // If any checkbox selected: use only those PDFs; else use all PDFs for this stock
+                            const checked = document.querySelectorAll(`.pdf-checkbox[data-stock="${stockName}"]:checked`);
+                            const allForStock = document.querySelectorAll(`.pdf-checkbox[data-stock="${stockName}"]`);
+                            const pdfUrls = checked.length > 0
+                                ? Array.from(checked).map(cb => cb.getAttribute("data-url"))
+                                : Array.from(allForStock).map(cb => cb.getAttribute("data-url"));
                             
                             if (pdfUrls.length === 0) {
-                                alert("Please select at least one PDF to analyze.");
+                                alert("No PDFs found for this stock.");
                                 return;
                             }
                             
-                            // For now, only process first PDF (as per requirement)
-                            const selectedPdfUrl = pdfUrls[0];
+                            const pdfCount = pdfUrls.length;
+                            const loadingDetail = pdfCount > 1
+                                ? `Processing ${pdfCount} PDF(s)...`
+                                : `Downloading and analyzing: ${pdfUrls[0].substring(0, 50)}${pdfUrls[0].length > 50 ? '...' : ''}`;
                             
                             // Show modal with loading immediately
                             modal.style.display = "block";
                             modalBody.innerHTML = `
                                 <div class="loading">
                                     <div class="spinner"></div>
-                                    <div class="loading-text">Processing PDF...</div>
+                                    <div class="loading-text">${pdfCount > 1 ? 'Processing ' + pdfCount + ' PDF(s)...' : 'Processing PDF...'}</div>
                                     <div class="loading-text" style="font-size: 12px; color: #999; margin-top: 5px;">
-                                        Downloading and analyzing: ${selectedPdfUrl.substring(0, 50)}${selectedPdfUrl.length > 50 ? '...' : ''}
+                                        ${loadingDetail}
                                     </div>
                                     <div class="loading-text" style="font-size: 11px; color: #999; margin-top: 10px;">
                                         This may take a few moments...
@@ -468,7 +719,7 @@
                                 },
                                 body: JSON.stringify({
                                     stock: stockName,
-                                    pdf_urls: [selectedPdfUrl]
+                                    pdf_urls: pdfUrls
                                 })
                             })
                             .then(response => response.json())
@@ -476,12 +727,27 @@
                                 if (data.error) {
                                     modalBody.innerHTML = `<div class="error">Error: ${data.error}</div>`;
                                 } else {
-                                    // Display JSON result
+                                    const sections = formatAnalysisResultSections(data.result);
+                                    const meta = data.processed_count != null && data.total_count != null
+                                        ? `<div style="margin-top: 6px; font-size: 12px; color: var(--loading);">Processed ${data.processed_count} of ${data.total_count} PDF(s)${data.message ? " — " + data.message : ""}</div>`
+                                        : "";
+                                    let resultHtml = sections.map(s => `
+                                        <div class="result-section" style="margin-bottom: 14px;">
+                                            <div class="result-heading" style="font-weight: 700; margin-bottom: 4px; color: var(--text);">${escapeHtml(s.heading)}</div>
+                                            <div class="result-content" style="white-space: pre-wrap; font-size: 13px; color: var(--td-text); padding-left: 8px;">${escapeHtml(s.content)}</div>
+                                        </div>
+                                    `).join("");
+                                    const downloadFilename = getDownloadPdfFilename(data.stock);
                                     modalBody.innerHTML = `
                                         <div><strong>Stock:</strong> ${data.stock}</div>
+                                        ${meta}
+                                        <div style="margin-top: 12px; margin-bottom: 10px;">
+                                            <button type="button" class="download-pdf-btn" id="downloadPdfBtn" data-stock="${escapeHtml(data.stock)}" data-filename="${escapeHtml(downloadFilename)}">Download as PDF</button>
+                                        </div>
                                         <div style="margin-top: 10px;"><strong>Result:</strong></div>
-                                        <div class="json-display">${escapeHtml(data.result)}</div>
+                                        <div class="result-display" id="modalResultContent">${resultHtml}</div>
                                     `;
+                                    attachDownloadPdfHandler(data.result, data.stock);
                                 }
                             })
                             .catch(error => {
@@ -499,6 +765,84 @@
                     const div = document.createElement("div");
                     div.textContent = text;
                     return div.innerHTML;
+                }
+                
+                const SECTION_LABELS = {
+                    growth_orders: "Growth / orders",
+                    margins_costs: "Margins / costs",
+                    capex_capacity: "Capex / capacity",
+                    balance_sheet: "Balance sheet",
+                    management_outlook: "Management outlook",
+                    strategic_events: "Strategic events"
+                };
+
+                function formatAnalysisResultSections(result) {
+                    if (!result) return [];
+                    try {
+                        const obj = typeof result === "string" ? JSON.parse(result) : result;
+                        if (!obj || typeof obj !== "object") return [{ heading: "Result", content: String(result) }];
+                        const sections = [];
+                        for (const key of Object.keys(obj)) {
+                            const val = obj[key];
+                            if (val == null || val === "") continue;
+                            const heading = SECTION_LABELS[key] || key;
+                            const content = typeof val === "string" ? val : JSON.stringify(val, null, 2);
+                            sections.push({ heading, content });
+                        }
+                        return sections.length ? sections : [{ heading: "Result", content: String(result) }];
+                    } catch (e) {
+                        return [{ heading: "Result", content: String(result) }];
+                    }
+                }
+
+                function getDownloadPdfFilename(stockName) {
+                    const safe = (stockName || "stock").replace(/[^\w\-]/g, "_");
+                    const now = new Date();
+                    const date = now.toISOString().slice(0, 10);
+                    const time = now.toTimeString().slice(0, 8).replace(/:/g, "-");
+                    return `${safe}_${date}_${time}.pdf`;
+                }
+
+                function attachDownloadPdfHandler(result, stockName) {
+                    const btn = document.getElementById("downloadPdfBtn");
+                    const lib = typeof jspdf !== "undefined" ? jspdf : window.jspdf;
+                    if (!btn || !lib) return;
+                    btn.onclick = function() {
+                        const sections = formatAnalysisResultSections(result);
+                        const { jsPDF } = lib;
+                        const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+                        const margin = 20;
+                        const pageW = doc.internal.pageSize.getWidth();
+                        let y = margin;
+                        const lineH = 6;
+                        const headH = 8;
+
+                        doc.setFontSize(14);
+                        doc.text("PDF Analysis Result", margin, y);
+                        y += 10;
+                        doc.setFontSize(11);
+                        doc.text("Stock: " + (stockName || ""), margin, y);
+                        y += 12;
+
+                        doc.setFontSize(10);
+                        for (const s of sections) {
+                            if (y > 270) { doc.addPage(); y = margin; }
+                            doc.setFont(undefined, "bold");
+                            doc.text(s.heading, margin, y);
+                            y += headH;
+                            doc.setFont(undefined, "normal");
+                            const lines = doc.splitTextToSize(s.content || "", pageW - 2 * margin);
+                            for (const line of lines) {
+                                if (y > 275) { doc.addPage(); y = margin; }
+                                doc.text(line, margin, y);
+                                y += lineH;
+                            }
+                            y += 6;
+                        }
+
+                        const filename = getDownloadPdfFilename(stockName);
+                        doc.save(filename);
+                    };
                 }
                 
                 // Event delegation is already set up above, so buttons work automatically

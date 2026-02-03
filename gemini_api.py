@@ -9,14 +9,19 @@ import json
 import time
 import re
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List
+
+# Model fallback chain when primary hits daily/minute rate limit (e.g. 20 RPD on Lite → 20 on Flash → 20 on 3 Flash = 60 RPD total)
+GEMINI_MODEL_PRIMARY = "gemini-2.5-flash-lite"
+GEMINI_MODEL_FALLBACKS: List[str] = ["gemini-2.5-flash", "gemini-3-flash"]
 
 # Import PDF processor
 try:
-    from pdf_processor import process_pdf, ProcessedPDF
+    from pdf_processor import process_pdf, process_multiple_pdfs, ProcessedPDF
     PDF_PROCESSOR_AVAILABLE = True
 except ImportError:
     PDF_PROCESSOR_AVAILABLE = False
+    process_multiple_pdfs = None
     print("Warning: pdf_processor module not found")
 
 # Try to import google-genai (new SDK)
@@ -194,51 +199,50 @@ def enforce_rate_limit():
     _last_request_time = time.time()
 
 
-def call_gemini_with_retry(client, model_name: str, contents, max_retries: int = 5, base_delay: float = 2.0):
+def _is_rate_limit_error(e: Exception) -> bool:
+    error_str = str(e)
+    return (
+        "429" in error_str
+        or "RESOURCE_EXHAUSTED" in error_str
+        or "quota" in error_str.lower()
+        or "rate limit" in error_str.lower()
+    )
+
+
+def call_gemini_with_retry(
+    client,
+    model_name: str,
+    contents,
+    fallback_models: Optional[List[str]] = None,
+):
     """
-    Call Gemini API with automatic retry and exponential backoff for rate limits.
-    
-    Args:
-        client: Gemini client
-        model_name: Model name
-        contents: Content to send
-        max_retries: Maximum number of retries
-        base_delay: Base delay in seconds for exponential backoff
-    
-    Returns:
-        Response from API
+    Call Gemini API with one attempt per model; on rate limit, switch to next model immediately (no retry wait).
     """
-    for attempt in range(max_retries + 1):
+    if fallback_models is None:
+        fallback_models = list(GEMINI_MODEL_FALLBACKS)
+    model_chain = [model_name] + [m for m in fallback_models if m != model_name]
+    last_error = None
+
+    for model in model_chain:
         try:
-            # Enforce rate limit before making request
             enforce_rate_limit()
-            
             response = client.models.generate_content(
-                model=model_name,
-                contents=contents
+                model=model,
+                contents=contents,
             )
+            if model != model_name:
+                print(f"  [OK] Succeeded with fallback model: {model}")
             return response
         except Exception as e:
-            error_str = str(e)
-            is_rate_limit = '429' in error_str or 'RESOURCE_EXHAUSTED' in error_str or 'quota' in error_str.lower()
-            
-            if is_rate_limit and attempt < max_retries:
-                # Try to extract retry delay from error
-                retry_delay = extract_retry_delay_from_error(e)
-                
-                if retry_delay:
-                    delay = retry_delay + 1.0  # Add 1 second buffer
-                else:
-                    # Exponential backoff: 2s, 4s, 8s, 16s, 32s
-                    delay = base_delay * (2 ** attempt)
-                
-                print(f"  [WARNING] Rate limit hit (attempt {attempt + 1}/{max_retries + 1})")
-                print(f"  Waiting {delay:.1f} seconds before retry...")
-                time.sleep(delay)
-                continue
-            else:
-                # Not a rate limit error, or max retries reached
+            last_error = e
+            if not _is_rate_limit_error(e):
                 raise
+            print(f"  [WARNING] Rate limit on {model}, trying next model...")
+            continue
+
+    if last_error is not None:
+        raise last_error
+    raise RuntimeError("No model succeeded (rate limits)")
 
 
 def summarize_pdf_with_gemini(pdf_path, model_name="gemini-2.5-flash-lite", use_preprocessing=True, stock_name=None):
@@ -354,25 +358,82 @@ def summarize_chunked_pdf(processed_pdf: ProcessedPDF, client, model_name: str, 
     
     if not chunk_summaries:
         raise Exception("Failed to summarize any chunks")
-    
-    # Pass 2: Combine chunk summaries into final summary
+
+    if len(chunk_summaries) == 1:
+        print(f"\n  Single chunk: skipping Pass 2, using chunk summary as final result.")
+        return chunk_summaries[0]
+
+    # Pass 2: Combine multiple chunk summaries into final summary
     print(f"\n{'=' * 80}")
     print("COMBINING SUMMARIES (Pass 2)")
     print(f"{'=' * 80}")
-    
+
     combined_summaries = "\n\n".join([
         f"=== Section {i+1} Summary ===\n{summary}"
         for i, summary in enumerate(chunk_summaries)
     ])
-    
+
     final_prompt = prompts["combine_request"]
 
     print(f"Generating final combined summary from {len(chunk_summaries)} section summaries...")
     response = call_gemini_with_retry(client, model_name, [combined_summaries, final_prompt])
     final_summary = response.text
     print(f"  [OK] Final summary generated ({len(final_summary)} characters)")
-    
+
     return final_summary
+
+
+def summarize_multiple_pdfs_with_gemini(
+    pdf_paths: list,
+    model_name: str = "gemini-2.5-flash-lite",
+    use_preprocessing: bool = True,
+    stock_name: str = None,
+) -> str:
+    """
+    Extract from all PDFs, combine extracted text, then send to Gemini in one go (chunk if needed).
+    Flow: extract each PDF -> combine all cleaned text -> chunk if over limit -> summarize (single or chunked).
+    """
+    if not pdf_paths:
+        raise ValueError("No PDF paths provided")
+    if not PDF_PROCESSOR_AVAILABLE or not process_multiple_pdfs:
+        raise RuntimeError("PDF preprocessing (pdf_processor) required for multi-PDF combined processing")
+    print(f"Processing {len(pdf_paths)} PDF(s): extract all, combine, then summarize...")
+    processed = process_multiple_pdfs(pdf_paths)
+    client = setup_gemini_client()
+    if processed.metadata.get("needs_chunking"):
+        return summarize_chunked_pdf(processed, client, model_name, stock_name=stock_name)
+    return summarize_text_with_gemini(processed.cleaned_text, client, model_name, stock_name=stock_name)
+
+
+def combine_document_summaries(summary_strings: list, client, model_name: str = "gemini-2.5-flash-lite", stock_name: str = None) -> str:
+    """
+    Combine multiple PDF summary JSON strings into a single JSON using Gemini.
+    Used when multiple PDFs were processed; merges per-document summaries into one.
+
+    Args:
+        summary_strings: List of JSON summary strings (one per document)
+        client: Gemini client
+        model_name: Model name to use
+        stock_name: Optional stock name (for prompt context)
+
+    Returns:
+        Single combined JSON summary as string
+    """
+    if not summary_strings:
+        return "{}"
+    if len(summary_strings) == 1:
+        return summary_strings[0]
+
+    prompts = load_gemini_prompts(stock_name=stock_name)
+    combine_prompt = prompts["combine_request"]
+
+    combined_input = "\n\n".join([
+        f"=== Document {i + 1} Summary ===\n{s}"
+        for i, s in enumerate(summary_strings)
+    ])
+
+    response = call_gemini_with_retry(client, model_name, [combined_input, combine_prompt])
+    return response.text
 
 
 def summarize_pdf_direct_upload(pdf_path: str, client, model_name: str, stock_name: str = None) -> str:

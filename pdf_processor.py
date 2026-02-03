@@ -4,6 +4,7 @@ Extracts text from PDFs, cleans it, and chunks if needed before sending to Gemin
 """
 import os
 import re
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List, Dict, Optional, Tuple
 
 # Try to import PDF libraries
@@ -550,4 +551,84 @@ def process_pdf(pdf_path: str) -> ProcessedPDF:
         result.chunks = [result.cleaned_text]
         result.metadata["chunk_count"] = 1
     
+    return result
+
+
+def process_multiple_pdfs(pdf_paths: List[str], max_workers: Optional[int] = None) -> ProcessedPDF:
+    """
+    Extract text from multiple PDFs in parallel, combine into one cleaned text, then chunk if needed.
+    Used when processing multiple selected PDFs together before sending to Gemini.
+
+    Returns:
+        ProcessedPDF with combined cleaned_text and chunks (if chunking needed).
+    """
+    if not pdf_paths:
+        raise ValueError("No PDF paths provided")
+
+    workers = max_workers if max_workers is not None else min(4, max(1, len(pdf_paths)))
+    results_by_index = {}  # index -> (label, cleaned_text, page_count)
+
+    def extract_one(item):
+        i, pdf_path = item
+        if not os.path.exists(pdf_path):
+            return i, None
+        label = os.path.basename(pdf_path) or f"document_{i + 1}"
+        try:
+            single = process_pdf(pdf_path)
+            text = single.cleaned_text or single.raw_text or ""
+            pages = single.metadata.get("page_count", 0)
+            return i, (label, text, pages)
+        except Exception:
+            return i, None
+
+    with ThreadPoolExecutor(max_workers=workers) as executor:
+        futures = {executor.submit(extract_one, (i, p)): i for i, p in enumerate(pdf_paths)}
+        for future in as_completed(futures):
+            idx = futures[future]
+            try:
+                i, data = future.result()
+                if data is not None:
+                    results_by_index[i] = data
+            except Exception:
+                pass
+
+    combined_parts = []
+    total_page_count = 0
+    doc_labels = []
+    for i in range(len(pdf_paths)):
+        if i not in results_by_index:
+            continue
+        label, text, pages = results_by_index[i]
+        doc_labels.append(label)
+        total_page_count += pages
+        sep = "\n\n" + "=" * 80 + f"\n[Document {i + 1}: {label}]\n" + "=" * 80 + "\n\n"
+        combined_parts.append(sep + text)
+
+    if not combined_parts:
+        raise Exception("No PDFs could be extracted")
+
+    combined_text = "\n\n".join(combined_parts)
+    combined_text = clean_text(combined_text)
+
+    result = ProcessedPDF()
+    result.raw_text = combined_text
+    result.cleaned_text = combined_text
+    result.metadata["extraction_method"] = "multiple"
+    result.metadata["page_count"] = total_page_count
+    result.metadata["character_count"] = len(combined_text)
+    result.metadata["document_count"] = len(combined_parts)
+    result.metadata["document_labels"] = doc_labels
+
+    needs_chunk, reason = needs_chunking(combined_text, total_page_count)
+    result.metadata["needs_chunking"] = needs_chunk
+
+    if needs_chunk:
+        max_chunk_size = 500000
+        overlap_chars = max(50000, max_chunk_size // 10)
+        result.chunks = chunk_text_semantic(combined_text, max_chunk_size, overlap_chars)
+        result.metadata["chunk_count"] = len(result.chunks)
+    else:
+        result.chunks = [combined_text]
+        result.metadata["chunk_count"] = 1
+
     return result
