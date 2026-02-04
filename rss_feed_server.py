@@ -44,6 +44,13 @@ cache = SearchCache()
 
 
 class SearchHandler(BaseHTTPRequestHandler):
+    def _safe_wfile_write(self, data):
+        """Write to client; suppress errors when client disconnected (refresh/navigate/close)."""
+        try:
+            self.wfile.write(data)
+        except (ConnectionAbortedError, ConnectionResetError, BrokenPipeError) as e:
+            print(f"[Server] Client disconnected: {type(e).__name__}")
+
     def _send_json(self, payload, status=200):
         body = json.dumps(payload).encode("utf-8")
         self.send_response(status)
@@ -51,7 +58,7 @@ class SearchHandler(BaseHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
-        self.wfile.write(body)
+        self._safe_wfile_write(body)
     
     def _send_cors_headers(self):
         """Send CORS headers for preflight requests."""
@@ -176,7 +183,7 @@ class SearchHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.send_header("Content-Length", str(len(html.encode("utf-8"))))
         self.end_headers()
-        self.wfile.write(html.encode("utf-8"))
+        self._safe_wfile_write(html.encode("utf-8"))
 
     def _parse_multipart_file(self, body, content_type):
         """Parse multipart/form-data body; return (file_bytes, filename) or (None, None)."""
@@ -338,6 +345,12 @@ class SearchHandler(BaseHTTPRequestHandler):
             from gemini_api import summarize_multiple_pdfs_with_gemini
 
             temp_dir = os.path.join(DATA_DIR, "temp_pdfs")
+            # Clear previous stock's PDFs before fetching new ones
+            if os.path.isdir(temp_dir):
+                try:
+                    shutil.rmtree(temp_dir)
+                except Exception:
+                    pass
             os.makedirs(temp_dir, exist_ok=True)
 
             total = len(pdf_urls)

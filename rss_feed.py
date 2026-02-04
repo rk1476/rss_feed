@@ -1333,12 +1333,17 @@ def generate_html_page(df, stocks_list, output_path, df_full=None):
                                     const meta = data.processed_count != null && data.total_count != null
                                         ? `<div style="margin-top: 6px; font-size: 12px; color: var(--loading);">Processed ${data.processed_count} of ${data.total_count} PDF(s)${data.message ? " — " + data.message : ""}</div>`
                                         : "";
-                                    let resultHtml = sections.map(s => `
+                                    let resultHtml = sections.map(s => {{
+                                        const points = contentToPoints(s.content);
+                                        const listHtml = points.length
+                                            ? "<ul class=\\"result-bullets\\" style=\\"margin: 4px 0 0 0; padding-left: 20px; font-size: 13px;\\">" + points.map(p => "<li>" + escapeHtml(p) + "</li>").join("") + "</ul>"
+                                            : "<div class=\\"result-content\\" style=\\"font-size: 13px; padding-left: 8px;\\">" + escapeHtml(s.content || "") + "</div>";
+                                        return `
                                         <div class="result-section" style="margin-bottom: 14px;">
-                                            <div class="result-heading" style="font-weight: 700; margin-bottom: 4px;">${escapeHtml(s.heading)}</div>
-                                            <div class="result-content" style="white-space: pre-wrap; font-size: 13px; padding-left: 8px;">${escapeHtml(s.content)}</div>
+                                            <div class="result-heading" style="font-weight: 700; margin-bottom: 4px;">${{escapeHtml(s.heading)}}</div>
+                                            ${{listHtml}}
                                         </div>
-                                    `).join("");
+                                    `; }}).join("");
                                     const downloadFilename = getDownloadPdfFilename(data.stock);
                                     modalBody.innerHTML = `
                                         <div><strong>Stock:</strong> ${data.stock}</div>
@@ -1368,6 +1373,28 @@ def generate_html_page(df, stocks_list, output_path, df_full=None):
                     div.textContent = text;
                     return div.innerHTML;
                 }
+                /** Parse section content into an array of bullet point strings. Handles arrays of strings or objects (Gemini may return either). */
+                function pointToDisplayString(x) {{
+                    if (x == null) return "";
+                    if (typeof x === "string") return x.trim();
+                    if (typeof x === "object") {{
+                        const t = x.text || x.point || x.content || x.catalyst || x.description;
+                        if (t != null && typeof t === "string") return t.trim();
+                        const keys = Object.keys(x);
+                        if (keys.length === 1) return String(x[keys[0]]).trim();
+                        return JSON.stringify(x);
+                    }}
+                    return String(x).trim();
+                }}
+                function contentToPoints(content) {{
+                    if (content == null || content === "") return [];
+                    if (Array.isArray(content)) return content.map(pointToDisplayString).filter(Boolean);
+                    const s = String(content).trim();
+                    if (!s) return [];
+                    const lines = s.split(/\\\\n+/).map(line => line.trim()).filter(Boolean);
+                    const points = lines.map(line => line.replace(/^[-*•–]\\\\s*/, "").replace(/^\\\\d+\\\\\.\\\\s*/, "")).filter(Boolean);
+                    return points.length ? points : [s];
+                }
                 
                 const SECTION_LABELS = {
                     growth_orders: "Growth / orders",
@@ -1380,14 +1407,22 @@ def generate_html_page(df, stocks_list, output_path, df_full=None):
                 function formatAnalysisResultSections(result) {
                     if (!result) return [];
                     try {
-                        const obj = typeof result === "string" ? JSON.parse(result) : result;
+                        let jsonStr = result;
+                        if (typeof result === "string") {{
+                            jsonStr = result.trim()
+                                .replace(/^\\s*```(?:json)?\\s*\\n?/i, "")
+                                .replace(/\\n?```\\s*$/i, "")
+                                .trim();
+                        }}
+                        const obj = typeof jsonStr === "string" ? JSON.parse(jsonStr) : jsonStr;
                         if (!obj || typeof obj !== "object") return [{ heading: "Result", content: String(result) }];
                         const sections = [];
                         for (const key of Object.keys(obj)) {
                             const val = obj[key];
                             if (val == null || val === "") continue;
                             const heading = SECTION_LABELS[key] || key;
-                            const content = typeof val === "string" ? val : JSON.stringify(val, null, 2);
+                            // Keep arrays as-is so contentToPoints shows bullet list; only stringify other objects
+                            const content = typeof val === "string" ? val : (Array.isArray(val) ? val : JSON.stringify(val, null, 2));
                             sections.push({ heading, content });
                         }
                         return sections.length ? sections : [{ heading: "Result", content: String(result) }];
@@ -1428,11 +1463,15 @@ def generate_html_page(df, stocks_list, output_path, df_full=None):
                             doc.text(s.heading, margin, y);
                             y += headH;
                             doc.setFont(undefined, "normal");
-                            const lines = doc.splitTextToSize(s.content || "", pageW - 2 * margin);
-                            for (const line of lines) {
-                                if (y > 275) { doc.addPage(); y = margin; }
-                                doc.text(line, margin, y);
-                                y += lineH;
+                            const points = contentToPoints(s.content);
+                            const bullet = "• ";
+                            for (const pt of points) {
+                                const lines = doc.splitTextToSize(bullet + pt, pageW - 2 * margin);
+                                for (const line of lines) {
+                                    if (y > 275) { doc.addPage(); y = margin; }
+                                    doc.text(line, margin, y);
+                                    y += lineH;
+                                }
                             }
                             y += 6;
                         }
@@ -1457,9 +1496,12 @@ def generate_html_page(df, stocks_list, output_path, df_full=None):
     total_matches = len(df)
     html_content = html_content.replace("{stocks_searched}", stocks_searched)
     html_content = html_content.replace("{total_matches}", str(total_matches))
-    # Emit valid JavaScript: Python template uses ${{ }} and }} for JS; convert to ${ } and }
+    # ROOT CAUSE FIX: Template is Python string; JS needs { } and ${ }. We use ${{ {{ }} here
+    # so Python doesn't treat { } as format placeholders. Below we convert to valid JS.
+    # Order matters: ${{ first, then }}, then {{ (else ${{ could become "${ {").
     html_content = html_content.replace("${{", "${")
     html_content = html_content.replace("}}", "}")
+    html_content = html_content.replace("{{", "{")
 
     # Write to file
     with open(output_path, 'w', encoding='utf-8') as f:

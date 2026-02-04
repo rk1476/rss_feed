@@ -37,7 +37,7 @@
       "range_days": 7
     }
   },
-  "gemini_api_key": "AIzaSyDlvkSo1o96lafTytsJsIulSa_DoCXlM8o",
+  "gemini_api_key": "AIzaSyB6vR1qPhAoB6pfC0kxJDx6Jz4Fg2sEfNc",
   "gemini_prompts": {
     "single_request": "Summarise the attached company disclosures ONLY from a stock catalyst perspective.\n\nFocus on:\n- New orders or revenue visibility\n- Capacity expansion or capex\n- Margin, cost, or profitability commentary\n- Balance sheet changes\n- Management guidance or outlook\n- Strategic or structural developments\n\nIgnore:\n- Boilerplate\n- Legal text\n- Repetition\n- Detailed financial tables\n\nReturn the output in JSON with keys:\n- growth_orders\n- margins_costs\n- capex_capacity\n- balance_sheet\n- management_outlook\n- strategic_events\n\nIf there are no meaningful catalysts, return an empty JSON object.",
     "chunk_request": "Summarise this section of the company disclosures ONLY from a stock catalyst perspective.\n\nFocus on:\n- New orders or revenue visibility\n- Capacity expansion or capex\n- Margin, cost, or profitability commentary\n- Balance sheet changes\n- Management guidance or outlook\n- Strategic or structural developments\n\nIgnore:\n- Boilerplate\n- Legal text\n- Repetition\n- Detailed financial tables\n\nReturn the output in JSON with keys:\n- growth_orders\n- margins_costs\n- capex_capacity\n- balance_sheet\n- management_outlook\n- strategic_events\n\nIf there are no meaningful catalysts in this section, return an empty JSON object.",
