@@ -8,6 +8,7 @@ import sys
 import json
 import time
 import re
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Optional, List
 
@@ -17,12 +18,24 @@ GEMINI_MODEL_FALLBACKS: List[str] = ["gemini-2.5-flash", "gemini-3-flash"]
 
 # Import PDF processor
 try:
-    from pdf_processor import process_pdf, process_multiple_pdfs, ProcessedPDF
+    from pdf_processor import process_pdf, process_multiple_pdfs, ProcessedPDF, clean_text, needs_chunking, chunk_text_semantic
     PDF_PROCESSOR_AVAILABLE = True
 except ImportError:
     PDF_PROCESSOR_AVAILABLE = False
     process_multiple_pdfs = None
+    clean_text = lambda x: (x or "").strip()
+    needs_chunking = lambda t, p: (False, "")
+    chunk_text_semantic = lambda t, m, o: [t] if t else []
     print("Warning: pdf_processor module not found")
+
+# Import document extractor (PDF, XML, CMS)
+try:
+    from document_extractor import extract_text_from_url, get_document_type
+    DOCUMENT_EXTRACTOR_AVAILABLE = True
+except ImportError:
+    DOCUMENT_EXTRACTOR_AVAILABLE = False
+    extract_text_from_url = None
+    get_document_type = None
 
 # Try to import google-genai (new SDK)
 try:
@@ -403,6 +416,96 @@ def summarize_multiple_pdfs_with_gemini(
     if processed.metadata.get("needs_chunking"):
         return summarize_chunked_pdf(processed, client, model_name, stock_name=stock_name)
     return summarize_text_with_gemini(processed.cleaned_text, client, model_name, stock_name=stock_name)
+
+
+def process_documents_for_gemini(
+    document_items: list = None,
+    document_urls: list = None,
+    model_name: str = "gemini-2.5-flash-lite",
+    stock_name: str = None,
+    temp_dir: str = None,
+) -> str:
+    """
+    Extract text from PDF, XML, and CMS URLs; combine; send to Gemini.
+    Supports: .pdf (download + pdf_processor), .xml/xbrl (MainI), .cms (readability).
+
+    document_items: list of {url, source?, published?} (preferred)
+    document_urls: list of URL strings (legacy fallback)
+    """
+    if document_items:
+        items = document_items
+    elif document_urls:
+        items = [{"url": u, "source": "", "published": ""} for u in document_urls if (u or "").strip()]
+    else:
+        items = []
+    if not items:
+        raise ValueError("No document URLs provided")
+    if not DOCUMENT_EXTRACTOR_AVAILABLE:
+        raise RuntimeError("document_extractor module required for multi-type document processing")
+
+    import tempfile as tmp_mod
+    base_temp = temp_dir or tmp_mod.mkdtemp()
+
+    urls = [item.get("url", item) if isinstance(item, dict) else item for item in items]
+
+    print(f"Processing {len(items)} document(s): extract all, combine, then summarize...")
+    results_by_index = {}
+    workers = min(6, max(1, len(urls)))
+
+    def extract_one(arg):
+        i, url = arg
+        try:
+            text, label, err = extract_text_from_url(url, temp_dir=base_temp)
+            if text and not err:
+                return i, (label, text)
+            if err:
+                print(f"  [SKIP] {label}: {err}")
+        except Exception as e:
+            print(f"  [SKIP] {url[:60]}...: {e}")
+        return i, None
+
+    with ThreadPoolExecutor(max_workers=workers) as executor:
+        futures = {executor.submit(extract_one, (i, u)): i for i, u in enumerate(urls)}
+        for future in as_completed(futures):
+            idx = futures[future]
+            try:
+                i, data = future.result()
+                if data is not None:
+                    results_by_index[i] = data
+            except Exception:
+                pass
+
+    combined_parts = []
+    for i in range(len(items)):
+        if i not in results_by_index:
+            continue
+        label, text = results_by_index[i]
+        item = items[i]
+        source = (item.get("source") or "").strip() or "—"
+        published = (item.get("published") or "").strip() or "—"
+        sep = "\n\n" + "=" * 80 + f"\n[Document {i + 1}: Source: {source}; Published: {published}; {label}]\n" + "=" * 80 + "\n\n"
+        combined_parts.append(sep + text)
+
+    if not combined_parts:
+        raise RuntimeError("No documents could be extracted")
+
+    combined_text = "\n\n".join(combined_parts)
+    combined_text = clean_text(combined_text)
+
+    page_count = len(combined_parts)
+    needs_chunk, reason = needs_chunking(combined_text, page_count)
+    client = setup_gemini_client()
+
+    if needs_chunk:
+        max_chunk_size = 500000
+        overlap_chars = max(50000, max_chunk_size // 10)
+        chunks = chunk_text_semantic(combined_text, max_chunk_size, overlap_chars)
+        processed = ProcessedPDF()
+        processed.cleaned_text = combined_text
+        processed.chunks = chunks
+        processed.metadata = {"needs_chunking": True, "chunk_count": len(chunks)}
+        return summarize_chunked_pdf(processed, client, model_name, stock_name=stock_name)
+    return summarize_text_with_gemini(combined_text, client, model_name, stock_name=stock_name)
 
 
 def combine_document_summaries(summary_strings: list, client, model_name: str = "gemini-2.5-flash-lite", stock_name: str = None) -> str:

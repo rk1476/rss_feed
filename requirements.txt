@@ -6,3 +6,6 @@ python-dateutil
 rapidfuzz
 google-genai
 flask
+readability-lxml
+beautifulsoup4
+lxml

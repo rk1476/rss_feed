@@ -494,20 +494,38 @@
                         if (negRow) tr.className = "neg-row";
                         const tooltip = [r.KW_Universal, r.KW_Sector, r.KW_Filters].filter(Boolean).join(" | ");
                         const link = r.Link || "";
-                        const isPdf = link.toLowerCase().endsWith('.pdf');
+                        const attachment = r.Attachment || "";
+                        const xbrlLink = r.XBRL_Link || "";
+                        const isAnalyzable = (url) => {
+                            if (!url || typeof url !== 'string') return false;
+                            url = url.trim();
+                            if (!url) return false;
+                            const u = url.toLowerCase();
+                            return u.endsWith('.pdf') || u.endsWith('.xml') || u.includes('/api/xbrl/') || u.includes('.cms') || u.includes('.html') || u.includes('.ece');
+                        };
+                        const seenUrls = new Set();
+                        const checkboxes = [];
+                        for (const url of [link, attachment, xbrlLink]) {
+                            if (!url || seenUrls.has(url.trim())) continue;
+                            if (isAnalyzable(url)) {
+                                seenUrls.add(url.trim());
+                                checkboxes.push(`<input type="checkbox" class="document-checkbox pdf-checkbox" data-url="${(url || "").toString().replace(/"/g, '&quot;')}" data-stock="${(r.Matched_Stock || "").toString().replace(/"/g, '&quot;')}">`);
+                            }
+                        };
+                        const checkboxHtml = checkboxes.join("");
                         const stockName = (r.Matched_Stock || "").toString();
                         const stockEscaped = stockName.replace(/"/g, '&quot;');
                         const linkEscaped = link.replace(/"/g, '&quot;');
-                        const checkboxHtml = isPdf ? `<input type="checkbox" class="pdf-checkbox" data-url="${linkEscaped}" data-stock="${stockEscaped}">` : "";
                         const showButton = stockName && !shownButtons.has(stockName);
                         if (showButton) shownButtons.add(stockName);
+                        const primaryUrl = link || attachment || xbrlLink;
                         tr.innerHTML = `
                             <td class="col-stock">${stockName}</td>
                             <td class="col-source">${r.Source || ""}</td>
                             <td class="col-published">${r.Published || ""}</td>
                             <td class="col-description" title="${tooltip}">${highlight(r.Description || "")}</td>
-                            <td class="col-link">${link ? `${checkboxHtml}<a href="${link}" target="_blank">${highlight(link)}</a>` : ""}</td>
-                            <td class="col-action">${showButton ? `<button class="analyze-btn" data-stock="${stockEscaped}">Analyze PDFs</button>` : ""}</td>
+                            <td class="col-link">${checkboxHtml}${primaryUrl ? `<a href="${primaryUrl}" target="_blank">${highlight(primaryUrl)}</a>` : ""}</td>
+                            <td class="col-action">${showButton ? `<button class="analyze-btn" data-stock="${stockEscaped}">Analyze Documents</button>` : ""}</td>
                         `;
                         tbody.appendChild(tr);
                     });
@@ -665,29 +683,39 @@
                         const stockName = btn.getAttribute("data-stock");
                         if (!stockName) return;
                             
-                            // If any checkbox selected: use only those PDFs; else use all PDFs for this stock
-                            const checked = document.querySelectorAll(`.pdf-checkbox[data-stock="${stockName}"]:checked`);
-                            const allForStock = document.querySelectorAll(`.pdf-checkbox[data-stock="${stockName}"]`);
-                            const pdfUrls = checked.length > 0
-                                ? Array.from(checked).map(cb => cb.getAttribute("data-url"))
-                                : Array.from(allForStock).map(cb => cb.getAttribute("data-url"));
+                            // If any checkbox selected: use only those; else use all documents for this stock
+                            const docCheckboxes = document.querySelectorAll(`.document-checkbox[data-stock="${stockName}"], .pdf-checkbox[data-stock="${stockName}"]`);
+                            const checked = document.querySelectorAll(`.document-checkbox[data-stock="${stockName}"]:checked, .pdf-checkbox[data-stock="${stockName}"]:checked`);
+                            const checkboxesToUse = checked.length > 0 ? checked : docCheckboxes;
+                            // Build document_items with url, source, published (from row cells)
+                            const seenUrls = new Set();
+                            const documentItems = [];
+                            for (const cb of checkboxesToUse) {
+                                const url = cb.getAttribute("data-url");
+                                if (!url || seenUrls.has(url)) continue;
+                                const tr = cb.closest("tr");
+                                const source = tr?.querySelector(".col-source")?.textContent?.trim() || "";
+                                const published = tr?.querySelector(".col-published")?.textContent?.trim() || "";
+                                seenUrls.add(url);
+                                documentItems.push({ url, source, published });
+                            }
                             
-                            if (pdfUrls.length === 0) {
-                                alert("No PDFs found for this stock.");
+                            if (documentItems.length === 0) {
+                                alert("No documents found for this stock. Add PDF, XML, or article links.");
                                 return;
                             }
                             
-                            const pdfCount = pdfUrls.length;
-                            const loadingDetail = pdfCount > 1
-                                ? `Processing ${pdfCount} PDF(s)...`
-                                : `Downloading and analyzing: ${pdfUrls[0].substring(0, 50)}${pdfUrls[0].length > 50 ? '...' : ''}`;
+                            const docCount = documentItems.length;
+                            const loadingDetail = docCount > 1
+                                ? `Processing ${docCount} document(s)...`
+                                : `Downloading and analyzing: ${documentItems[0].url.substring(0, 50)}${documentItems[0].url.length > 50 ? '...' : ''}`;
                             
                             // Show modal with loading immediately
                             modal.style.display = "block";
                             modalBody.innerHTML = `
                                 <div class="loading">
                                     <div class="spinner"></div>
-                                    <div class="loading-text">${pdfCount > 1 ? 'Processing ' + pdfCount + ' PDF(s)...' : 'Processing PDF...'}</div>
+                                    <div class="loading-text">${docCount > 1 ? 'Processing ' + docCount + ' document(s)...' : 'Processing document...'}</div>
                                     <div class="loading-text" style="font-size: 12px; color: #999; margin-top: 5px;">
                                         ${loadingDetail}
                                     </div>
@@ -703,14 +731,14 @@
                             btn.textContent = "Processing...";
                             
                             // Send request to backend
-                            fetch(`${SERVER_URL}/process_pdfs`, {
+                            fetch(`${SERVER_URL}/process_documents`, {
                                 method: "POST",
                                 headers: {
                                     "Content-Type": "application/json",
                                 },
                                 body: JSON.stringify({
                                     stock: stockName,
-                                    pdf_urls: pdfUrls
+                                    document_items: documentItems
                                 })
                             })
                             .then(response => response.json())
@@ -720,7 +748,7 @@
                                 } else {
                                     const sections = formatAnalysisResultSections(data.result);
                                     const meta = data.processed_count != null && data.total_count != null
-                                        ? `<div style="margin-top: 6px; font-size: 12px; color: var(--loading);">Processed ${data.processed_count} of ${data.total_count} PDF(s)${data.message ? " — " + data.message : ""}</div>`
+                                        ? `<div style="margin-top: 6px; font-size: 12px; color: var(--loading);">Processed ${data.processed_count} of ${data.total_count} document(s)${data.message ? " — " + data.message : ""}</div>`
                                         : "";
                                     let resultHtml = sections.map(s => {
                                         const points = contentToPoints(s.content);
@@ -732,8 +760,7 @@
                                             <div class="result-heading" style="font-weight: 700; margin-bottom: 4px;">${escapeHtml(s.heading)}</div>
                                             ${listHtml}
                                         </div>
-                                    `;
-                                    }).join("");
+                                    `; }).join("");
                                     const downloadFilename = getDownloadPdfFilename(data.stock);
                                     modalBody.innerHTML = `
                                         <div><strong>Stock:</strong> ${data.stock}</div>

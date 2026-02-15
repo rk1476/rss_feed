@@ -73,6 +73,51 @@ def _build_keyword_maps(cfg):
 UNIVERSAL_KW, SECTOR_KW, FILTER_KW, HIGHLIGHT_KEYWORDS = _build_keyword_maps(CATALYST_KEYWORDS)
 NEGATIVE_KEYWORDS = list((CATALYST_KEYWORDS.get("filters") or {}).get("negative", []))
 
+
+def _row_has_any_catalyst_match(row):
+    """Returns True if row matches any phrase from universal, sectors, or filters (incl. negative)."""
+    row_text = f"{row.get('Title','')} {row.get('Description','')} {row.get('Link','')} {row.get('Attachment','')} {row.get('XBRL_Link','')}"
+    text_norm = normalize_text(row_text)
+    industry_norm = normalize_text(row.get("Industry", ""))
+
+    def _has_phrase_match(text_norm, phrase_map):
+        if not phrase_map:
+            return False
+        padded_text = f" {text_norm} "
+        for p_norm in phrase_map:
+            if f" {p_norm} " in padded_text:
+                return True
+        return False
+
+    def _detect_sectors(text_norm, industry_norm):
+        sectors_found = []
+        for sector_key in SECTOR_KW.keys():
+            sector_norm = normalize_text(sector_key)
+            if not sector_norm:
+                continue
+            if len(sector_norm) <= 3:
+                pattern = r"\b" + re.escape(sector_norm) + r"\b"
+                if re.search(pattern, text_norm) or re.search(pattern, industry_norm):
+                    sectors_found.append(sector_key)
+            else:
+                if sector_norm in text_norm or sector_norm in industry_norm:
+                    sectors_found.append(sector_key)
+        return sectors_found
+
+    for cat, phrases in (UNIVERSAL_KW or {}).items():
+        if _has_phrase_match(text_norm, phrases):
+            return True
+    for sector_key in _detect_sectors(text_norm, industry_norm):
+        sector_map = SECTOR_KW.get(sector_key, {})
+        for cat, phrases in (sector_map or {}).items():
+            if _has_phrase_match(text_norm, phrases):
+                return True
+    for cat, phrases in (FILTER_KW or {}).items():
+        if _has_phrase_match(text_norm, phrases):
+            return True
+    return False
+
+
 # Search exceptions for specific symbols
 SEARCH_EXCEPTIONS = {
     # For stock symbol "BSE", ignore BSE-source rows to avoid a flood of obvious matches.
@@ -1101,20 +1146,38 @@ def generate_html_page(df, stocks_list, output_path, df_full=None):
                         if (negRow) tr.className = "neg-row";
                         const tooltip = [r.KW_Universal, r.KW_Sector, r.KW_Filters].filter(Boolean).join(" | ");
                         const link = r.Link || "";
-                        const isPdf = link.toLowerCase().endsWith('.pdf');
+                        const attachment = r.Attachment || "";
+                        const xbrlLink = r.XBRL_Link || "";
+                        const isAnalyzable = (url) => {{
+                            if (!url || typeof url !== 'string') return false;
+                            url = url.trim();
+                            if (!url) return false;
+                            const u = url.toLowerCase();
+                            return u.endsWith('.pdf') || u.endsWith('.xml') || u.includes('/api/xbrl/') || u.includes('.cms') || u.includes('.html') || u.includes('.ece');
+                        }};
+                        const seenUrls = new Set();
+                        const checkboxes = [];
+                        for (const url of [link, attachment, xbrlLink]) {{
+                            if (!url || seenUrls.has(url.trim())) continue;
+                            if (isAnalyzable(url)) {{
+                                seenUrls.add(url.trim());
+                                checkboxes.push(`<input type="checkbox" class="document-checkbox pdf-checkbox" data-url="${{(url || "").toString().replace(/"/g, '&quot;')}}" data-stock="${{(r.Matched_Stock || "").toString().replace(/"/g, '&quot;')}}">`);
+                            }}
+                        }};
+                        const checkboxHtml = checkboxes.join("");
                         const stockName = (r.Matched_Stock || "").toString();
                         const stockEscaped = stockName.replace(/"/g, '&quot;');
                         const linkEscaped = link.replace(/"/g, '&quot;');
-                        const checkboxHtml = isPdf ? `<input type="checkbox" class="pdf-checkbox" data-url="${{linkEscaped}}" data-stock="${{stockEscaped}}">` : "";
                         const showButton = stockName && !shownButtons.has(stockName);
                         if (showButton) shownButtons.add(stockName);
+                        const primaryUrl = link || attachment || xbrlLink;
                         tr.innerHTML = `
                             <td class="col-stock">${{stockName}}</td>
                             <td class="col-source">${{r.Source || ""}}</td>
                             <td class="col-published">${{r.Published || ""}}</td>
                             <td class="col-description" title="${{tooltip}}">${{highlight(r.Description || "")}}</td>
-                            <td class="col-link">${{link ? `${{checkboxHtml}}<a href="${{link}}" target="_blank">${{highlight(link)}}</a>` : ""}}</td>
-                            <td class="col-action">${{showButton ? `<button class="analyze-btn" data-stock="${{stockEscaped}}">Analyze PDFs</button>` : ""}}</td>
+                            <td class="col-link">${{checkboxHtml}}${{primaryUrl ? `<a href="${{primaryUrl}}" target="_blank">${{highlight(primaryUrl)}}</a>` : ""}}</td>
+                            <td class="col-action">${{showButton ? `<button class="analyze-btn" data-stock="${{stockEscaped}}">Analyze Documents</button>` : ""}}</td>
                         `;
                         tbody.appendChild(tr);
                     }});
@@ -1276,29 +1339,39 @@ def generate_html_page(df, stocks_list, output_path, df_full=None):
                         const stockName = btn.getAttribute("data-stock");
                         if (!stockName) return;
                             
-                            // If any checkbox selected: use only those PDFs; else use all PDFs for this stock
-                            const checked = document.querySelectorAll(`.pdf-checkbox[data-stock="${{stockName}}"]:checked`);
-                            const allForStock = document.querySelectorAll(`.pdf-checkbox[data-stock="${{stockName}}"]`);
-                            const pdfUrls = checked.length > 0
-                                ? Array.from(checked).map(cb => cb.getAttribute("data-url"))
-                                : Array.from(allForStock).map(cb => cb.getAttribute("data-url"));
+                            // If any checkbox selected: use only those; else use all documents for this stock
+                            const docCheckboxes = document.querySelectorAll(`.document-checkbox[data-stock="${{stockName}}"], .pdf-checkbox[data-stock="${{stockName}}"]`);
+                            const checked = document.querySelectorAll(`.document-checkbox[data-stock="${{stockName}}"]:checked, .pdf-checkbox[data-stock="${{stockName}}"]:checked`);
+                            const checkboxesToUse = checked.length > 0 ? checked : docCheckboxes;
+                            // Build document_items with url, source, published (from row cells)
+                            const seenUrls = new Set();
+                            const documentItems = [];
+                            for (const cb of checkboxesToUse) {{
+                                const url = cb.getAttribute("data-url");
+                                if (!url || seenUrls.has(url)) continue;
+                                const tr = cb.closest("tr");
+                                const source = tr?.querySelector(".col-source")?.textContent?.trim() || "";
+                                const published = tr?.querySelector(".col-published")?.textContent?.trim() || "";
+                                seenUrls.add(url);
+                                documentItems.push({{ url, source, published }});
+                            }}
                             
-                            if (pdfUrls.length === 0) {
-                                alert("No PDFs found for this stock.");
+                            if (documentItems.length === 0) {{
+                                alert("No documents found for this stock. Add PDF, XML, or article links.");
                                 return;
-                            }
+                            }}
                             
-                            const pdfCount = pdfUrls.length;
-                            const loadingDetail = pdfCount > 1
-                                ? `Processing ${{pdfCount}} PDF(s)...`
-                                : `Downloading and analyzing: ${{pdfUrls[0].substring(0, 50)}}${{pdfUrls[0].length > 50 ? '...' : ''}}`;
+                            const docCount = documentItems.length;
+                            const loadingDetail = docCount > 1
+                                ? `Processing ${{docCount}} document(s)...`
+                                : `Downloading and analyzing: ${{documentItems[0].url.substring(0, 50)}}${{documentItems[0].url.length > 50 ? '...' : ''}}`;
                             
                             // Show modal with loading immediately
                             modal.style.display = "block";
                             modalBody.innerHTML = `
                                 <div class="loading">
                                     <div class="spinner"></div>
-                                    <div class="loading-text">${{pdfCount > 1 ? 'Processing ' + pdfCount + ' PDF(s)...' : 'Processing PDF...'}}</div>
+                                    <div class="loading-text">${{docCount > 1 ? 'Processing ' + docCount + ' document(s)...' : 'Processing document...'}}</div>
                                     <div class="loading-text" style="font-size: 12px; color: #999; margin-top: 5px;">
                                         ${{loadingDetail}}
                                     </div>
@@ -1314,16 +1387,16 @@ def generate_html_page(df, stocks_list, output_path, df_full=None):
                             btn.textContent = "Processing...";
                             
                             // Send request to backend
-                            fetch(`${SERVER_URL}/process_pdfs`, {
+                            fetch(`${{SERVER_URL}}/process_documents`, {{
                                 method: "POST",
-                                headers: {
+                                headers: {{
                                     "Content-Type": "application/json",
-                                },
-                                body: JSON.stringify({
+                                }},
+                                body: JSON.stringify({{
                                     stock: stockName,
-                                    pdf_urls: pdfUrls
-                                })
-                            })
+                                    document_items: documentItems
+                                }})
+                            }})
                             .then(response => response.json())
                             .then(data => {
                                 if (data.error) {
@@ -1331,7 +1404,7 @@ def generate_html_page(df, stocks_list, output_path, df_full=None):
                                 } else {
                                     const sections = formatAnalysisResultSections(data.result);
                                     const meta = data.processed_count != null && data.total_count != null
-                                        ? `<div style="margin-top: 6px; font-size: 12px; color: var(--loading);">Processed ${data.processed_count} of ${data.total_count} PDF(s)${data.message ? " — " + data.message : ""}</div>`
+                                        ? `<div style="margin-top: 6px; font-size: 12px; color: var(--loading);">Processed ${{data.processed_count}} of ${{data.total_count}} document(s)${{data.message ? " — " + data.message : ""}}</div>`
                                         : "";
                                     let resultHtml = sections.map(s => {{
                                         const points = contentToPoints(s.content);
@@ -1553,33 +1626,47 @@ def fetch_nse_feeds():
     return rows, feed_stats
 
 def fetch_external_feeds():
-    """Fetch external feeds (BSE, Moneycontrol, etc.)"""
+    """Fetch external feeds (BSE, Moneycontrol, BusinessLine, etc.)"""
     rows = []
     feed_stats = []
     
     for source_name, feed_url in EXTERNAL_FEEDS.items():
-        try:
-            response = requests.get(feed_url, headers=EXTERNAL_HEADERS, timeout=30)
-            response.raise_for_status()
-            
-            feed = feedparser.parse(response.content)
-            
-            entry_count = len(feed.entries)
-            feed_stats.append({"Source": source_name, "Entries": entry_count, "Status": "Success"})
-            
-            # Parse feed entries
-            for entry in feed.entries:
-                rows.append({
-                    "Source": source_name,
-                    "Published": entry.get("published", ""),
-                    "Title": entry.get("title", "").strip(),
-                    "Link": entry.get("link", "").strip(),
-                    "Description": entry.get("summary", "").strip(),
-                    "FetchedAt": datetime.now(timezone.utc).replace(tzinfo=None)
-                })
-        except Exception as e:
-            feed_stats.append({"Source": source_name, "Entries": 0, "Status": f"Error: {str(e)}"})
-            print(f"Error fetching {source_name}: {str(e)}")
+        urls = [feed_url] if isinstance(feed_url, str) else feed_url
+        source_entry_count = 0
+        source_error = None
+        for url in urls:
+            try:
+                response = requests.get(url, headers=EXTERNAL_HEADERS, timeout=30)
+                response.raise_for_status()
+                
+                feed = feedparser.parse(response.content)
+                
+                # Parse feed entries (RSS item: title, link, description, pubDate, guid)
+                for entry in feed.entries:
+                    link = (entry.get("link") or entry.get("guid") or "").strip()
+                    # BusinessLine: only include .ece article links
+                    if source_name == "BusinessLine" and (not link or ".ece" not in link.lower()):
+                        continue
+                    description = (entry.get("summary") or entry.get("description") or "")
+                    if hasattr(description, "strip"):
+                        description = description.strip()
+                    rows.append({
+                        "Source": source_name,
+                        "Published": entry.get("published") or entry.get("updated") or "",
+                        "Title": (entry.get("title") or "").strip(),
+                        "Link": link,
+                        "Description": description,
+                        "FetchedAt": datetime.now(timezone.utc).replace(tzinfo=None)
+                    })
+                    source_entry_count += 1
+            except Exception as e:
+                source_error = str(e)
+                print(f"Error fetching {source_name} ({url}): {e}")
+        feed_stats.append({
+            "Source": source_name,
+            "Entries": source_entry_count,
+            "Status": "Success" if source_error is None else f"Error: {source_error}"
+        })
     
     return rows, feed_stats
 
@@ -1777,11 +1864,9 @@ def run_full_fetch():
             source_df = df_final[df_final['Source'] == source].copy()
             
             # Filter records with valid dates within last 30 days (including today)
-            # Convert parsed dates to date objects for comparison (ignore time component)
             def is_within_30_days(parsed_date):
                 if parsed_date is None:
                     return False
-                # dateutil.parser.parse() returns datetime, convert to date for comparison
                 try:
                     if isinstance(parsed_date, datetime):
                         record_date = parsed_date.date()
@@ -1791,12 +1876,12 @@ def run_full_fetch():
                 except:
                     return False
             
-            source_df['Keep'] = source_df['ParsedDate'].apply(is_within_30_days)
-            
-            # Keep records with valid dates in last 30 days, or records without dates (keep them as fallback)
-            source_df_filtered = source_df[
-                (source_df['Keep'] == True) | (source_df['ParsedDate'].isna())
-            ].copy()
+            within_30 = source_df['ParsedDate'].apply(is_within_30_days)
+            no_date = source_df['ParsedDate'].isna()
+            has_catalyst = source_df.apply(_row_has_any_catalyst_match, axis=1)
+            is_old = ~within_30 & source_df['ParsedDate'].notna()
+            source_df['Keep'] = within_30 | no_date | (has_catalyst & is_old)
+            source_df_filtered = source_df[source_df['Keep']].copy()
             
             records_removed += len(source_df) - len(source_df_filtered)
             filtered_rows.append(source_df_filtered)

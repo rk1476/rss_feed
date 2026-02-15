@@ -111,6 +111,8 @@ class SearchHandler(BaseHTTPRequestHandler):
                 "Published": safe_str(row.get("Published", "")),
                 "Description": safe_str(row.get("Description", "")),
                 "Link": safe_str(link_display) if link_display else "",
+                "Attachment": safe_str(row.get("Attachment", "")),
+                "XBRL_Link": safe_str(row.get("XBRL_Link", "")),
                 "KW_Universal": safe_str(row.get("KW_Universal", "")),
                 "KW_Sector": safe_str(row.get("KW_Sector", "")),
                 "KW_Filters": safe_str(row.get("KW_Filters", "")),
@@ -155,6 +157,8 @@ class SearchHandler(BaseHTTPRequestHandler):
                 "Published": safe_str(row.get("Published", "")),
                 "Description": safe_str(row.get("Description", "")),
                 "Link": safe_str(link_display) if link_display else "",
+                "Attachment": safe_str(row.get("Attachment", "")),
+                "XBRL_Link": safe_str(row.get("XBRL_Link", "")),
                 "KW_Universal": safe_str(row.get("KW_Universal", "")),
                 "KW_Sector": safe_str(row.get("KW_Sector", "")),
                 "KW_Filters": safe_str(row.get("KW_Filters", "")),
@@ -275,6 +279,8 @@ class SearchHandler(BaseHTTPRequestHandler):
                 "Published": safe_str(row.get("Published", "")),
                 "Description": safe_str(row.get("Description", "")),
                 "Link": safe_str(link_display) if link_display else "",
+                "Attachment": safe_str(row.get("Attachment", "")),
+                "XBRL_Link": safe_str(row.get("XBRL_Link", "")),
                 "KW_Universal": safe_str(row.get("KW_Universal", "")),
                 "KW_Sector": safe_str(row.get("KW_Sector", "")),
                 "KW_Filters": safe_str(row.get("KW_Filters", "")),
@@ -292,6 +298,8 @@ class SearchHandler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         if parsed.path == "/process_pdfs":
             return self._handle_process_pdfs()
+        if parsed.path == "/process_documents":
+            return self._handle_process_documents()
         if parsed.path == "/search_with_file":
             return self._handle_search_with_file()
         return self._send_json({"error": "Not found"}, status=404)
@@ -409,6 +417,82 @@ class SearchHandler(BaseHTTPRequestHandler):
                             os.remove(p)
                     except Exception:
                         pass
+
+        except json.JSONDecodeError:
+            return self._send_json({"error": "Invalid JSON in request body"}, status=400)
+        except Exception as e:
+            return self._send_json({"error": f"Server error: {str(e)}"}, status=500)
+
+    def _handle_process_documents(self):
+        """Handle document processing (PDF, XML, CMS). Accepts document_items or document_urls."""
+        try:
+            content_length = int(self.headers.get("Content-Length", 0))
+            if content_length == 0:
+                return self._send_json({"error": "Empty request body"}, status=400)
+
+            body = self.rfile.read(content_length)
+            data = json.loads(body.decode("utf-8"))
+
+            stock = data.get("stock", "").strip()
+            document_items = data.get("document_items", [])
+            if not document_items:
+                # Fall back to document_urls for backward compatibility
+                urls = data.get("document_urls", []) or data.get("pdf_urls", [])
+                document_items = [{"url": u, "source": "", "published": ""} for u in urls if (u or "").strip()]
+            # Deduplicate by URL (preserve order and metadata of first occurrence)
+            seen_urls = set()
+            unique_items = []
+            for item in document_items:
+                if isinstance(item, dict):
+                    u = (item.get("url") or "").strip()
+                    source = item.get("source") or ""
+                    published = item.get("published") or ""
+                else:
+                    u = (item or "").strip()
+                    source = ""
+                    published = ""
+                if u and u not in seen_urls:
+                    seen_urls.add(u)
+                    unique_items.append({"url": u, "source": source, "published": published})
+            document_items = unique_items
+
+            if not stock:
+                return self._send_json({"error": "Missing stock parameter"}, status=400)
+            if not document_items:
+                return self._send_json({"error": "No document URLs provided"}, status=400)
+
+            from gemini_api import process_documents_for_gemini
+
+            temp_dir = os.path.join(DATA_DIR, "temp_docs")
+            if os.path.isdir(temp_dir):
+                try:
+                    shutil.rmtree(temp_dir)
+                except Exception:
+                    pass
+            os.makedirs(temp_dir, exist_ok=True)
+
+            total = len(document_items)
+            try:
+                result = process_documents_for_gemini(
+                    document_items=document_items,
+                    model_name="gemini-2.5-flash-lite",
+                    stock_name=stock,
+                    temp_dir=temp_dir,
+                )
+                return self._send_json({
+                    "stock": stock,
+                    "result": result,
+                    "processed_count": total,
+                    "total_count": total,
+                })
+            except Exception as e:
+                return self._send_json({"error": str(e), "stock": stock}, status=500)
+            finally:
+                try:
+                    if os.path.isdir(temp_dir):
+                        shutil.rmtree(temp_dir, ignore_errors=True)
+                except Exception:
+                    pass
 
         except json.JSONDecodeError:
             return self._send_json({"error": "Invalid JSON in request body"}, status=400)
