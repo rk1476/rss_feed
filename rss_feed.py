@@ -74,48 +74,96 @@ UNIVERSAL_KW, SECTOR_KW, FILTER_KW, HIGHLIGHT_KEYWORDS = _build_keyword_maps(CAT
 NEGATIVE_KEYWORDS = list((CATALYST_KEYWORDS.get("filters") or {}).get("negative", []))
 
 
-def _row_has_any_catalyst_match(row):
-    """Returns True if row matches any phrase from universal, sectors, or filters (incl. negative)."""
-    row_text = f"{row.get('Title','')} {row.get('Description','')} {row.get('Link','')} {row.get('Attachment','')} {row.get('XBRL_Link','')}"
+def _get_matched_catalyst_phrases(row):
+    """Return set of normalized phrases from universal/sectors/filters that matched in the row.
+    Uses all column values (including Link, Attachment, XBRL_Link and any other columns) so
+    keywords in URLs or non-standard columns are found."""
+    row_text = " ".join(str(row.get(k, "")) for k in row.index)
     text_norm = normalize_text(row_text)
     industry_norm = normalize_text(row.get("Industry", ""))
+    matched = set()
 
-    def _has_phrase_match(text_norm, phrase_map):
+    def _collect_phrase_matches(text_norm, phrase_map):
         if not phrase_map:
-            return False
+            return
         padded_text = f" {text_norm} "
         for p_norm in phrase_map:
             if f" {p_norm} " in padded_text:
-                return True
-        return False
-
-    def _detect_sectors(text_norm, industry_norm):
-        sectors_found = []
-        for sector_key in SECTOR_KW.keys():
-            sector_norm = normalize_text(sector_key)
-            if not sector_norm:
-                continue
-            if len(sector_norm) <= 3:
-                pattern = r"\b" + re.escape(sector_norm) + r"\b"
-                if re.search(pattern, text_norm) or re.search(pattern, industry_norm):
-                    sectors_found.append(sector_key)
-            else:
-                if sector_norm in text_norm or sector_norm in industry_norm:
-                    sectors_found.append(sector_key)
-        return sectors_found
+                matched.add(p_norm)
 
     for cat, phrases in (UNIVERSAL_KW or {}).items():
-        if _has_phrase_match(text_norm, phrases):
-            return True
-    for sector_key in _detect_sectors(text_norm, industry_norm):
+        _collect_phrase_matches(text_norm, phrases)
+    # Check all sector phrases against text (so e.g. "kavach" matches even if "railways" isn't in the row)
+    for sector_key in (SECTOR_KW or {}).keys():
         sector_map = SECTOR_KW.get(sector_key, {})
         for cat, phrases in (sector_map or {}).items():
-            if _has_phrase_match(text_norm, phrases):
-                return True
+            _collect_phrase_matches(text_norm, phrases)
     for cat, phrases in (FILTER_KW or {}).items():
-        if _has_phrase_match(text_norm, phrases):
+        _collect_phrase_matches(text_norm, phrases)
+    return matched
+
+
+def _row_has_any_catalyst_match(row, exclude_phrases=None):
+    """Returns True if row matches any phrase from universal, sectors, or filters (incl. negative).
+    If exclude_phrases is provided (iterable of strings, e.g. from daily_scan), a row counts as
+    a match only if it has at least one matching phrase not in exclude_phrases (normalized).
+    A matched phrase is also treated as excluded if it is a substring of an excluded phrase
+    (e.g. 'results' is covered when 'financial results' is excluded)."""
+    matched = _get_matched_catalyst_phrases(row)
+    if not matched:
+        return False
+    if exclude_phrases is not None:
+        excluded = {normalize_text(p) for p in exclude_phrases if p}
+        covered = set()
+        for m in matched:
+            if m in excluded:
+                covered.add(m)
+            else:
+                for e in excluded:
+                    if m in e:
+                        covered.add(m)
+                        break
+        if matched - covered:
             return True
-    return False
+        return False
+    return True
+
+
+def get_stocks_with_triggers(stock_list, excel_path=None, exclude_keywords=None):
+    """
+    Return set of stock symbols that have at least one row in the RSS feed Excel
+    where the row is for that stock and _row_has_any_catalyst_match(row) is True.
+    Used by Daily_Scan Step 11 (check_triggers.py).
+    Reuses the same search path as the UI (parse_stock_format -> search_stocks_in_dataframe)
+    so it works with the raw Excel (Symbol column, no Matched_Stock).
+
+    stock_list: list of symbols as they appear in output_final (e.g. "NSE:TCS").
+    excel_path: path to rss_feed.xlsx; if None, uses EXCEL_FILE (rss_feed data dir).
+    exclude_keywords: optional list of phrases to exclude as catalyst matches (e.g. for daily_scan
+        flow only). Rows that match only these phrases are not counted as triggers.
+    """
+    path = excel_path or EXCEL_FILE
+    if not os.path.exists(path):
+        raise FileNotFoundError(f"Excel file not found: {path}")
+    df = pd.read_excel(path)
+    if df.empty:
+        return set()
+    stock_list_clean = [s.strip() for s in stock_list if s and str(s).strip()]
+    if not stock_list_clean:
+        return set()
+    symbol_map = load_stock_company_mapping()
+    bare_list = [parse_stock_format(s) for s in stock_list_clean]
+    matched_df = search_stocks_in_dataframe(df, bare_list, symbol_map)
+    if matched_df.empty:
+        return set()
+    stocks_with_catalyst_bare = set()
+    for _, row in matched_df.iterrows():
+        if not _row_has_any_catalyst_match(row, exclude_phrases=exclude_keywords):
+            continue
+        ms = str(row.get("Matched_Stock", "") or "").strip()
+        for token in (t.strip() for t in ms.split(",") if t.strip()):
+            stocks_with_catalyst_bare.add(token.upper())
+    return {orig for orig in stock_list_clean if orig and parse_stock_format(orig) in stocks_with_catalyst_bare}
 
 
 # Search exceptions for specific symbols
@@ -128,6 +176,40 @@ SEARCH_EXCEPTIONS = {
         "skip_source_rows": True,
     }
 }
+
+
+def build_search_blobs(df):
+    """Precompute Row_Blob, Row_Blob_Upper, and exception blob columns on df (in place).
+    Used by the server cache so search_stocks_in_dataframe skips recomputing on every request."""
+    if df.empty:
+        return
+
+    def build_filtered_blob(row, exclude_cols, strip_urls=False):
+        values = []
+        for col, val in row.items():
+            if col in exclude_cols:
+                continue
+            values.append(str(val))
+        blob = " ".join(values)
+        if strip_urls:
+            blob = re.sub(r'https?://\S+|www\.\S+', ' ', blob)
+        return blob
+
+    df['Row_Blob'] = df.astype(str).agg(' '.join, axis=1)
+    df['Row_Blob_Upper'] = df['Row_Blob'].str.upper()
+
+    if SEARCH_EXCEPTIONS:
+        for symbol, rule in SEARCH_EXCEPTIONS.items():
+            source_match = rule.get("source_equals")
+            exclude_cols = set(rule.get("exclude_columns", []))
+            strip_urls = bool(rule.get("strip_urls"))
+            if source_match and exclude_cols:
+                mask_source = df["Source"].astype(str) == source_match
+                df.loc[mask_source, f"Row_Blob_{symbol}"] = df.loc[mask_source].apply(
+                    lambda r: build_filtered_blob(r, exclude_cols, strip_urls=strip_urls), axis=1
+                )
+                df.loc[mask_source, f"Row_Blob_{symbol}_Upper"] = df.loc[mask_source, f"Row_Blob_{symbol}"].str.upper()
+
 
 # Ensure directory exists
 os.makedirs(os.path.dirname(EXCEL_FILE), exist_ok=True)
@@ -454,34 +536,9 @@ def search_stocks_in_dataframe(df, stocks_list, symbol_to_company_map):
     # Create a copy to avoid modifying original
     df_search = df.copy()
     
-    # Build a single search blob per row by concatenating all column values
-    df_search['Row_Blob'] = df_search.astype(str).agg(' '.join, axis=1)
-    df_search['Row_Blob_Upper'] = df_search['Row_Blob'].str.upper()
-
-    # Precompute alternate blob for exception cases (e.g., BSE symbol on BSE source rows)
-    def build_filtered_blob(row, exclude_cols, strip_urls=False):
-        values = []
-        for col, val in row.items():
-            if col in exclude_cols:
-                continue
-            values.append(str(val))
-        blob = " ".join(values)
-        if strip_urls:
-            # Remove URL-like substrings to avoid matches from link text
-            blob = re.sub(r'https?://\S+|www\.\S+', ' ', blob)
-        return blob
-
-    if SEARCH_EXCEPTIONS:
-        for symbol, rule in SEARCH_EXCEPTIONS.items():
-            source_match = rule.get("source_equals")
-            exclude_cols = set(rule.get("exclude_columns", []))
-            strip_urls = bool(rule.get("strip_urls"))
-            if source_match and exclude_cols:
-                mask_source = df_search["Source"].astype(str) == source_match
-                df_search.loc[mask_source, f"Row_Blob_{symbol}"] = df_search.loc[mask_source].apply(
-                    lambda r: build_filtered_blob(r, exclude_cols, strip_urls=strip_urls), axis=1
-                )
-                df_search.loc[mask_source, f"Row_Blob_{symbol}_Upper"] = df_search.loc[mask_source, f"Row_Blob_{symbol}"].str.upper()
+    # Use precomputed blobs if present (e.g. from server cache); otherwise build once
+    if 'Row_Blob' not in df_search.columns or 'Row_Blob_Upper' not in df_search.columns:
+        build_search_blobs(df_search)
     
     # Find rows where any stock symbol or company name appears
     mask = pd.Series([False] * len(df_search))
@@ -1465,7 +1522,7 @@ def generate_html_page(df, stocks_list, output_path, df_full=None):
                     const s = String(content).trim();
                     if (!s) return [];
                     const lines = s.split(/\\\\n+/).map(line => line.trim()).filter(Boolean);
-                    const points = lines.map(line => line.replace(/^[-*•–]\\\\s*/, "").replace(/^\\\\d+\\\\\.\\\\s*/, "")).filter(Boolean);
+                    const points = lines.map(line => line.replace(/^[-*•–]\\\\s*/, "").replace(/^\\\\d+\\\.\\s*/, "")).filter(Boolean);
                     return points.length ? points : [s];
                 }
                 

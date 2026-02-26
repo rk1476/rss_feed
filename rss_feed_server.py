@@ -13,6 +13,7 @@ from rss_feed import (
     EXCEL_FILE,
     load_stock_company_mapping,
     search_stocks_in_dataframe,
+    build_search_blobs,
     select_link_display,
     normalize_text,
     read_stocks_list,
@@ -37,6 +38,7 @@ class SearchCache:
             if "Source" not in self.df.columns:
                 self.df.insert(0, "Source", "")
             self.symbol_map = load_stock_company_mapping()
+            build_search_blobs(self.df)
             self.mtime = mtime
 
 
